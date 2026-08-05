@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "rate_tariffs" ALTER COLUMN "utility_name" SET DATA TYPE TEXT,
+ALTER COLUMN "rate_name" SET DATA TYPE TEXT,
+ALTER COLUMN "service_type" SET DATA TYPE TEXT,
+ALTER COLUMN "source_url" SET DATA TYPE TEXT;

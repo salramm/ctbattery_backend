@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+src/generated/
+*.log
+
+# ─── Large source/generated data (own repo now — was covered by root ignore) ──
+# The 4.8 MB simplified GeoJSON IS committed (runtime geo asset); everything
+# else in data/ (USURDB, full territories, SQLite DB) is not.
+data/*.json
+data/*.json.gz
+data/*.geojson
+!data/territories-simple.geojson
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+.DS_Store

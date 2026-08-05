@@ -1,0 +1,245 @@
+// CT Battery Solutions — data model.
+// Conventions: PascalCase models, snake_case columns via @map, enums @@map'd,
+// createdAt/updatedAt everywhere, indexes on every where/orderBy column.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==== ENUMS ===================================================================
+
+enum UserRole {
+  ADMIN
+  OWNER
+
+  @@map("user_role")
+}
+
+enum EligibilityKind {
+  STANDARD
+  PRIORITY
+  INELIGIBLE
+
+  @@map("eligibility_kind")
+}
+
+enum ApplicationStatus {
+  LEAD
+  SUBMITTED
+  RENTER_PENDING
+  SURVEY_SCHEDULED
+  SIGNED
+
+  @@map("application_status")
+}
+
+enum OwnerOutreachMode {
+  WE
+  SELF
+
+  @@map("owner_outreach_mode")
+}
+
+// ==== MODELS ==================================================================
+
+/// Admin portal users. Identity verified by Firebase; the API issues its own JWT.
+model User {
+  id          Int      @id @default(autoincrement())
+  firebaseUid String   @unique @map("firebase_uid") @db.VarChar(128)
+  email       String   @unique @db.VarChar(255)
+  name        String?  @db.VarChar(255)
+  role        UserRole @default(ADMIN)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+/// A consumer battery application (the /ct/apply flow). Single table with grouped
+/// nullable sections; free-text selections stored as strings, branch fields as enums.
+model Application {
+  id                Int               @id @default(autoincrement())
+  applicationNumber String            @unique @map("application_number") @db.VarChar(32)
+  status            ApplicationStatus @default(SUBMITTED)
+  source            String?           @db.VarChar(64)
+
+  // Contact
+  firstName         String  @map("first_name") @db.VarChar(120)
+  lastName          String  @map("last_name") @db.VarChar(120)
+  email             String  @db.VarChar(255)
+  phone             String  @db.VarChar(40)
+  preferredLanguage String? @map("preferred_language") @db.VarChar(60)
+
+  // Property
+  formattedAddress    String  @map("formatted_address") @db.VarChar(400)
+  lat                 Float?
+  lng                 Float?
+  city                String? @db.VarChar(120)
+  utility             String? @db.VarChar(160)
+  dwellingType        String? @map("dwelling_type") @db.VarChar(80)
+  isOwner             Boolean @default(true) @map("is_owner")
+  utilityAccount      String? @map("utility_account") @db.VarChar(60)
+  hasMedicalEquipment Boolean @default(false) @map("has_medical_equipment")
+
+  // Eligibility snapshot (as resolved at submit time)
+  eligibilityKind EligibilityKind? @map("eligibility_kind")
+  resolvedUtility String?          @map("resolved_utility") @db.VarChar(160)
+  resolvedCity    String?          @map("resolved_city") @db.VarChar(120)
+
+  // Install details (owner path)
+  installLocation String? @map("install_location") @db.VarChar(80)
+  panelAmps       String? @map("panel_amps") @db.VarChar(80)
+  panelAge        String? @map("panel_age") @db.VarChar(80)
+  solarStatus     String? @map("solar_status") @db.VarChar(120)
+  accessNotes     String? @map("access_notes") @db.VarChar(1000)
+
+  // Renter path (owner outreach)
+  ownerName            String?            @map("owner_name") @db.VarChar(200)
+  ownerOrg             String?            @map("owner_org") @db.VarChar(200)
+  ownerEmail           String?            @map("owner_email") @db.VarChar(255)
+  ownerPhone           String?            @map("owner_phone") @db.VarChar(40)
+  ownerOutreachMode    OwnerOutreachMode? @map("owner_outreach_mode")
+  ownerNote            String?            @map("owner_note") @db.VarChar(1000)
+  renterPendingConsent Boolean            @default(false) @map("renter_pending_consent")
+
+  // Survey scheduling
+  surveyDate String? @map("survey_date") @db.VarChar(40)
+  surveySlot String? @map("survey_slot") @db.VarChar(40)
+
+  // Consent / ESA e-signature
+  agreeReadEsa    Boolean   @default(false) @map("agree_read_esa")
+  agreeAuthEnroll Boolean   @default(false) @map("agree_auth_enroll")
+  agreeESign      Boolean   @default(false) @map("agree_esign")
+  signedName      String?   @map("signed_name") @db.VarChar(200)
+  signedAt        DateTime? @map("signed_at")
+  esaVersion      String?   @map("esa_version") @db.VarChar(40)
+
+  // Uploaded electrical-panel photo (DO Spaces CDN URL)
+  panelPhotoUrl String? @map("panel_photo_url") @db.VarChar(600)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+  @@map("applications")
+}
+
+/// OpenEI USURDB commercial & industrial rate tariffs (~41.8k rows). Nested rate
+/// structures kept as JSON; queryable columns are indexed.
+model RateTariff {
+  id          Int      @id @default(autoincrement())
+  label       String   @unique @db.VarChar(64)
+  // Uncontrolled USURDB text — kept unbounded to avoid P2000 on long values.
+  utilityName String   @map("utility_name")
+  eiaId       String?  @map("eia_id") @db.VarChar(32)
+  rateName    String?  @map("rate_name")
+  sector      String?  @db.VarChar(64)
+  serviceType String?  @map("service_type")
+  description String?
+  sourceUrl   String?  @map("source_url")
+  isDefault   Boolean? @map("is_default")
+  approved    Boolean?
+  startDate   String?  @map("start_date") @db.VarChar(40)
+  endDate     String?  @map("end_date") @db.VarChar(40)
+
+  // Demand charges
+  flatDemandUnit          String?  @map("flat_demand_unit") @db.VarChar(40)
+  flatDemandStructure     Json?    @map("flat_demand_structure")
+  flatDemandMonths        Json?    @map("flat_demand_months")
+  demandRateUnit          String?  @map("demand_rate_unit") @db.VarChar(40)
+  demandRateStructure     Json?    @map("demand_rate_structure")
+  demandWeekdaySchedule   Json?    @map("demand_weekday_schedule")
+  demandWeekendSchedule   Json?    @map("demand_weekend_schedule")
+  demandRatchetPercentage Float?   @map("demand_ratchet_percentage")
+  demandWindow            Int?     @map("demand_window")
+  demandReactivePowerCharge Float? @map("demand_reactive_power_charge")
+
+  // Coincident peak
+  coincidentRateUnit      String?  @map("coincident_rate_unit") @db.VarChar(40)
+  coincidentRateStructure Json?    @map("coincident_rate_structure")
+  coincidentSchedule      Json?    @map("coincident_schedule")
+
+  // Energy charges
+  energyRateUnit        String? @map("energy_rate_unit") @db.VarChar(40)
+  energyRateStructure   Json?   @map("energy_rate_structure")
+  energyWeekdaySchedule Json?   @map("energy_weekday_schedule")
+  energyWeekendSchedule Json?   @map("energy_weekend_schedule")
+
+  // Fixed charges
+  fixedMonthlyCharge Float? @map("fixed_monthly_charge")
+  minMonthlyCharge   Float? @map("min_monthly_charge")
+  annualMinCharge    Float? @map("annual_min_charge")
+
+  // Capacity
+  peakKwCapacityMin Float?   @map("peak_kw_capacity_min")
+  peakKwCapacityMax Float?   @map("peak_kw_capacity_max")
+  usesNetMetering   Boolean? @map("uses_net_metering")
+
+  rawJson   Json?    @map("raw_json")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([utilityName])
+  @@index([eiaId])
+  @@index([sector])
+  @@map("rate_tariffs")
+}
+
+/// Proprietary market enrichment for target utility territories (DR revenue,
+/// incentives, C-PACE, interconnection, BESS score). Small, curated table.
+model UtilityEnrichment {
+  id          Int     @id @default(autoincrement())
+  utilityName String  @map("utility_name") @db.VarChar(255)
+  state       String  @db.VarChar(8)
+  isoRto      String? @map("iso_rto") @db.VarChar(40)
+
+  // Demand response
+  drProgramName      String? @map("dr_program_name") @db.VarChar(200)
+  drProgramType      String? @map("dr_program_type") @db.VarChar(120)
+  drRevenuePerKwYear Float?  @map("dr_revenue_per_kw_year")
+  drSeasonStart      String? @map("dr_season_start") @db.VarChar(40)
+  drSeasonEnd        String? @map("dr_season_end") @db.VarChar(40)
+  drEventsPerYear    Int?    @map("dr_events_per_year")
+  drEnrollmentMethod String? @map("dr_enrollment_method") @db.VarChar(200)
+
+  // Incentives
+  incentiveProgram      String? @map("incentive_program") @db.VarChar(200)
+  incentiveRatePerKwh   Float?  @map("incentive_rate_per_kwh")
+  incentiveBlockName    String? @map("incentive_block_name") @db.VarChar(120)
+  incentiveRemainingMwh Float?  @map("incentive_remaining_mwh")
+  incentiveUrl          String? @map("incentive_url") @db.VarChar(600)
+
+  // C-PACE financing
+  cpaceAvailable            Boolean? @map("cpace_available")
+  cpaceAdministrator        String?  @map("cpace_administrator") @db.VarChar(200)
+  cpaceAdministratorContact String?  @map("cpace_administrator_contact") @db.VarChar(200)
+  cpaceCountiesOptedIn      String?  @map("cpace_counties_opted_in") @db.VarChar(600)
+
+  // Interconnection / permitting
+  interconnectionProcess       String?  @map("interconnection_process") @db.VarChar(300)
+  interconnectionTimelineWeeks Int?     @map("interconnection_timeline_weeks")
+  greenButtonCmdAvailable      Boolean? @map("green_button_cmd_available")
+  avgPermitTimelineWeeks       Int?     @map("avg_permit_timeline_weeks")
+  fireReviewRequired           Boolean? @map("fire_review_required")
+
+  // Analysis
+  specialRequirements  String?
+  bessScore            Int?    @map("bess_score")
+  primaryRevenueDriver String? @map("primary_revenue_driver") @db.VarChar(60)
+  notes                String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([utilityName, state])
+  @@index([utilityName])
+  @@index([state])
+  @@map("utility_enrichment")
+}
