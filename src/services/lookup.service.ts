@@ -7,6 +7,7 @@
 import { resolveTerritory } from './territory.service';
 import { getEnrichmentByUtility, shapeEnrichment, shapeIncentives } from './enrichment.service';
 import { getTariffDefaults } from './tariff.service';
+import { geocodeOneline } from './geocode.service';
 import { DISTRESSED_MUNIS, SERVED_STATE } from '../constants/eligibility';
 
 export type EligibilityKind = 'STANDARD' | 'PRIORITY' | 'INELIGIBLE';
@@ -17,7 +18,7 @@ export interface LookupInput {
   address?: string;
 }
 
-function detectCity(address?: string): string | null {
+function detectCity(address?: string | null): string | null {
   if (!address) return null;
   const lower = address.toLowerCase();
   const match = DISTRESSED_MUNIS.find((c) => lower.includes(c));
@@ -25,7 +26,7 @@ function detectCity(address?: string): string | null {
 }
 
 /** Fallback CT detection from the address string when point-in-polygon misses. */
-function looksLikeCtAddress(address?: string): boolean {
+function looksLikeCtAddress(address?: string | null): boolean {
   if (!address) return false;
   const l = address.toLowerCase();
   return (
@@ -36,12 +37,25 @@ function looksLikeCtAddress(address?: string): boolean {
 }
 
 export async function lookup(input: LookupInput) {
-  const { lat, lng, address } = input;
+  let { lat, lng } = input;
+  const { address } = input;
+  let matchedAddress: string | null = address ?? null;
+
+  // Address-only submissions get geocoded (free, key-less) so we can run the
+  // real point-in-polygon territory match instead of the string fallback.
+  if ((lat == null || lng == null) && address) {
+    const geo = await geocodeOneline(address);
+    if (geo) {
+      lat = geo.lat;
+      lng = geo.lng;
+      matchedAddress = geo.matchedAddress;
+    }
+  }
 
   const territory = lat != null && lng != null ? resolveTerritory(lat, lng) : null;
   const utilityName = territory?.utilityName ?? null;
-  const state = territory?.state ?? (looksLikeCtAddress(address) ? SERVED_STATE : null);
-  const city = detectCity(address);
+  const state = territory?.state ?? (looksLikeCtAddress(matchedAddress) ? SERVED_STATE : null);
+  const city = detectCity(matchedAddress);
 
   // ---- Eligibility -----------------------------------------------------------
   let kind: EligibilityKind;
@@ -79,7 +93,7 @@ export async function lookup(input: LookupInput) {
     : null;
 
   return {
-    address: address ?? null,
+    address: matchedAddress,
     coordinates: lat != null && lng != null ? { lat, lng } : null,
     eligibility: { kind, city, reason },
     utility,

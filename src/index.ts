@@ -22,6 +22,10 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const SERVICE = 'ctbs-backend';
 
+// Behind a single nginx-proxy in prod: trust it so req.ip / rate-limiting use
+// the real client IP from X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // Browsers hit Netlify's same-origin /api proxy in prod; this allowlist covers
 // direct/dev access and server-to-server calls (which send no Origin header).
 const allowedOrigins = [
@@ -67,7 +71,8 @@ app.get('/api', (_req: Request, res: Response) => {
       endpoints: {
         'POST /api/auth/login': 'Firebase verify → API JWT',
         'GET  /api/auth/me': 'current user (JWT)',
-        'POST /api/lookup': 'address/coords → utility + eligibility + enrichment',
+        'POST /api/lookup': 'address/coords → utility + eligibility (Census geocode) + enrichment',
+        'GET  /api/lookup/suggest?q=': 'address typeahead suggestions (Photon, CT-biased)',
         'GET  /api/territories': 'utility-territory GeoJSON (map)',
         'GET  /api/tariffs?utility=&page=&limit=': 'C&I rate tariffs',
         'POST /api/analyze': 'BESS savings model (C&I engine)',
