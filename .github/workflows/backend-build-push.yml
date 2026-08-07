@@ -19,6 +19,8 @@ jobs:
           context: .
           file: deployment/Dockerfile
           push: true
+          # prod compose pulls :latest, dev compose pulls :dev — build once, tag both.
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/ctbs-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/ctbs-backend:dev
             ${{ secrets.DOCKER_USERNAME }}/ctbs-backend:${{ github.sha }}
