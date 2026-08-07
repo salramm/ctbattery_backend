@@ -243,3 +243,21 @@ model UtilityEnrichment {
   @@index([state])
   @@map("utility_enrichment")
 }
+
+/// Waitlist "Join the list" signups from the pre-approval landing. Lightweight
+/// lead capture (email required); upserted on email so re-submits don't dupe.
+model Lead {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique @db.VarChar(255)
+  firstName String?  @map("first_name") @db.VarChar(120)
+  lastName  String?  @map("last_name") @db.VarChar(120)
+  cityOrZip String?  @map("city_or_zip") @db.VarChar(120)
+  phone     String?  @db.VarChar(40)
+  tenure    String?  @db.VarChar(40)
+  source    String?  @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([createdAt])
+  @@map("leads")
+}

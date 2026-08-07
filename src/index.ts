@@ -15,6 +15,7 @@ import territoriesRouter from './routes/territories';
 import tariffsRouter from './routes/tariffs';
 import analyzeRouter from './routes/analyze';
 import applicationsRouter from './routes/applications';
+import leadsRouter from './routes/leads';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -69,6 +70,8 @@ app.get('/api', (_req: Request, res: Response) => {
         'GET  /api/territories': 'utility-territory GeoJSON (map)',
         'GET  /api/tariffs?utility=&page=&limit=': 'C&I rate tariffs',
         'POST /api/analyze': 'BESS savings model (C&I engine)',
+        'POST /api/leads': 'join the waitlist (public)',
+        'GET  /api/leads': 'list waitlist leads (admin)',
         'POST /api/applications': 'submit a consumer application (public)',
         'POST /api/applications/:id/panel-photo': 'upload panel photo (public)',
         'GET  /api/applications': 'list applications (admin)',
@@ -86,6 +89,7 @@ app.use('/api/territories', territoriesRouter);
 app.use('/api/tariffs', tariffsRouter);
 app.use('/api/analyze', analyzeRouter);
 app.use('/api/applications', applicationsRouter);
+app.use('/api/leads', leadsRouter);
 
 // ==== Error + 404 handlers ====================================================
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
