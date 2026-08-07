@@ -17,6 +17,7 @@ import analyzeRouter from './routes/analyze';
 import applicationsRouter from './routes/applications';
 import leadsRouter from './routes/leads';
 import loiRouter from './routes/loi';
+import opsRouter from './routes/ops';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -81,6 +82,12 @@ app.get('/api', (_req: Request, res: Response) => {
         'POST /api/loi': 'sign a Letter of Intent → returns PDF (public)',
         'GET  /api/loi': 'list LOIs (admin)',
         'GET  /api/loi/:id/pdf': 'download an LOI PDF (admin)',
+        'GET  /api/ops/summary': 'TPO dashboard KPIs (admin)',
+        'GET  /api/ops/fleet': 'fleet monitoring map + table (admin)',
+        'GET  /api/ops/projects': 'project delivery board (admin)',
+        'GET  /api/ops/pipeline': 'sales pipeline by status (admin)',
+        'GET  /api/ops/contractors': 'contractor directory (admin)',
+        'GET  /api/ops/jobs': 'job board postings (admin)',
         'POST /api/applications': 'submit a consumer application (public)',
         'POST /api/applications/:id/panel-photo': 'upload panel photo (public)',
         'GET  /api/applications': 'list applications (admin)',
@@ -100,6 +107,7 @@ app.use('/api/analyze', analyzeRouter);
 app.use('/api/applications', applicationsRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/loi', loiRouter);
+app.use('/api/ops', opsRouter);
 
 // ==== Error + 404 handlers ====================================================
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

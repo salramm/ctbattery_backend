@@ -291,3 +291,709 @@ model Loi {
   @@index([createdAt])
   @@map("lois")
 }
+
+// =============================================================================
+// TPO OPERATIONS PLATFORM  (dashboard behind /portal)
+// Implements the "TPO Platform Model" spec: 26 models across 7 domains, verbatim
+// field names. NOTE: the spec's `Lead` and `User` are renamed here to `SalesLead`
+// and `PlatformUser` to avoid colliding with the existing waitlist `Lead` and
+// admin `User` models above. All rows are currently seeded demo data.
+// =============================================================================
+
+// ==== TPO ENUMS ====
+enum LeadSource {
+  WEB
+  REFERRAL
+  PARTNER
+  CANVASS
+  UTILITY_LIST
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  DISQUALIFIED
+}
+
+enum CustomerStatus {
+  LOI_SENT
+  LOI_SIGNED
+  CREDIT_APPROVED
+  AGREEMENT_SIGNED
+}
+
+enum DocType {
+  LOI
+  TPO_AGREEMENT
+  NTP
+  PERMIT_SET
+  PHOTO
+  INSPECTION_REPORT
+  COI
+}
+
+enum DocStatus {
+  DRAFT
+  SENT
+  SIGNED
+  VOID
+}
+
+enum ProjectStage {
+  DESIGN
+  SITE_SURVEY
+  PERMITTING
+  INTERCONNECTION
+  SCHEDULED
+  INSTALLED
+  INSPECTION
+  PTO
+  MONITORING
+  ACTIVE
+}
+
+enum Health {
+  ON_TRACK
+  AT_RISK
+  BLOCKED
+}
+
+enum AssetStatus {
+  IN_STOCK
+  ALLOCATED
+  INSTALLED
+  RMA
+  RETIRED
+}
+
+enum SurveyStatus {
+  SCHEDULED
+  COMPLETE
+  FAILED
+}
+
+enum PermitType {
+  ELECTRICAL
+  BUILDING
+  FIRE
+}
+
+enum PermitStatus {
+  NOT_STARTED
+  SUBMITTED
+  CORRECTIONS
+  APPROVED
+  EXPIRED
+}
+
+enum IxStatus {
+  NOT_STARTED
+  SUBMITTED
+  IN_REVIEW
+  APPROVED_TO_INSTALL
+  PTO_GRANTED
+  REJECTED
+}
+
+enum InspectionResult {
+  PENDING
+  PASS
+  FAIL
+}
+
+enum ContractorStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum ContractorRole {
+  ADMIN
+  TECH
+}
+
+enum JobScope {
+  SITE_SURVEY
+  INSTALL
+  SERVICE
+  REMOVAL
+}
+
+enum PostingStatus {
+  OPEN
+  AWARDED
+  CANCELLED
+  EXPIRED
+}
+
+enum BidStatus {
+  SUBMITTED
+  WITHDRAWN
+  WON
+  LOST
+}
+
+enum WorkOrderStatus {
+  AWARDED
+  SCHEDULED
+  IN_PROGRESS
+  SUBMITTED
+  ACCEPTED
+  REWORK
+  CANCELLED
+}
+
+enum Severity {
+  INFO
+  WARN
+  CRITICAL
+}
+
+enum SubjectType {
+  LEAD
+  CUSTOMER
+  PROJECT
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+enum PlatformRole {
+  SALES_REP
+  SALES_MANAGER
+  OPS
+  ADMIN
+  CONTRACTOR
+  HOMEOWNER
+}
+
+// ==== PLATFORM domain ====
+model PlatformUser {
+  id        String       @id @default(cuid())
+  email     String       @unique
+  name      String
+  role      PlatformRole
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  contact          Contact?          @relation("UserContact")
+  ownedLeads       SalesLead[]       @relation("LeadOwner")
+  managedProjects  Project[]         @relation("ProjectPM")
+  assignedTasks    Task[]
+  stageTransitions StageTransition[]
+  contractorLinks  ContractorUser[]
+
+  @@map("platform_users")
+}
+
+model StageTransition {
+  id          String        @id @default(cuid())
+  subjectType SubjectType
+  subjectId   String
+  fromStage   String
+  toStage     String
+  actorId     String?
+  occurredAt  DateTime      @default(now())
+  note        String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  actor PlatformUser? @relation(fields: [actorId], references: [id])
+
+  @@index([subjectType, subjectId])
+  @@map("stage_transitions")
+}
+
+model Task {
+  id         String     @id @default(cuid())
+  projectId  String?
+  leadId     String?
+  assigneeId String
+  title      String
+  dueAt      DateTime?
+  status     TaskStatus @default(OPEN)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  project  Project?     @relation(fields: [projectId], references: [id])
+  lead     SalesLead?   @relation(fields: [leadId], references: [id])
+  assignee PlatformUser @relation(fields: [assigneeId], references: [id])
+
+  @@index([projectId])
+  @@map("tasks")
+}
+
+model Document {
+  id             String    @id @default(cuid())
+  customerId     String?
+  projectId      String?
+  type           DocType
+  status         DocStatus @default(DRAFT)
+  esignEnvelopeId String?
+  signedAt       DateTime?
+  fileUrl        String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+  project  Project?  @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@map("documents")
+}
+
+// ==== PLACE domain ====
+model Utility {
+  id                       String   @id @default(cuid())
+  name                     String
+  territoryCode            String
+  interconnectionPortalUrl String?
+  standardReviewDays       Int?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  addresses        Address[]
+  interconnections Interconnection[]
+
+  @@map("utilities")
+}
+
+model Ahj {
+  id                String   @id @default(cuid())
+  name              String
+  county            String
+  permitPortalUrl   String?
+  avgApprovalDays   Int?
+  requiresStructural Boolean @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  addresses Address[]
+  permits   Permit[]
+
+  @@map("ahjs")
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  line1      String
+  line2      String?
+  city       String
+  state      String   @default("CT")
+  postalCode String
+  county     String
+  lat        Float?
+  lng        Float?
+  utilityId  String?
+  ahjId      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  utility          Utility?   @relation(fields: [utilityId], references: [id])
+  ahj              Ahj?       @relation(fields: [ahjId], references: [id])
+  leads            SalesLead[] @relation("LeadAddress")
+  serviceCustomers Customer[]  @relation("CustServiceAddr")
+  billingCustomers Customer[]  @relation("CustBillingAddr")
+  projects         Project[]   @relation("ProjSiteAddr")
+
+  @@index([county])
+  @@map("addresses")
+}
+
+// ==== DEMAND domain ====
+model Contact {
+  id                String   @id @default(cuid())
+  firstName         String
+  lastName          String
+  email             String   @unique
+  phone             String
+  preferredLanguage String   @default("en")
+  userId            String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user      PlatformUser? @relation("UserContact", fields: [userId], references: [id])
+  leads     SalesLead[]
+  customers Customer[]
+
+  @@map("contacts")
+}
+
+model SalesLead {
+  id                   String     @id @default(cuid())
+  addressId            String
+  contactId            String
+  ownerId              String?
+  source               LeadSource
+  status               LeadStatus @default(NEW)
+  disqualifyReason     String?
+  estimatedMonthlyBill Decimal?
+  convertedCustomerId  String?    @unique
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  address  Address       @relation("LeadAddress", fields: [addressId], references: [id])
+  contact  Contact       @relation(fields: [contactId], references: [id])
+  owner    PlatformUser? @relation("LeadOwner", fields: [ownerId], references: [id])
+  customer Customer?     @relation("LeadCustomer")
+  tasks    Task[]
+
+  @@index([status])
+  @@map("sales_leads")
+}
+
+model Customer {
+  id               String         @id @default(cuid())
+  leadId           String         @unique
+  contactId        String
+  serviceAddressId String
+  billingAddressId String?
+  status           CustomerStatus @default(LOI_SENT)
+  creditTier       String?
+  creditCheckedAt  DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  lead           SalesLead  @relation("LeadCustomer", fields: [leadId], references: [id])
+  contact        Contact    @relation(fields: [contactId], references: [id])
+  serviceAddress Address    @relation("CustServiceAddr", fields: [serviceAddressId], references: [id])
+  billingAddress Address?   @relation("CustBillingAddr", fields: [billingAddressId], references: [id])
+  project        Project?
+  documents      Document[]
+
+  @@map("customers")
+}
+
+// ==== DELIVERY domain ====
+model Project {
+  id               String       @id @default(cuid())
+  customerId       String       @unique
+  siteAddressId    String
+  stage            ProjectStage @default(DESIGN)
+  health           Health       @default(ON_TRACK)
+  projectManagerId String?
+  termYears        Int          @default(20)
+  monthlyRateCents Int
+  targetPtoDate    DateTime?
+  actualPtoDate    DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  customer        Customer        @relation(fields: [customerId], references: [id])
+  siteAddress     Address         @relation("ProjSiteAddr", fields: [siteAddressId], references: [id])
+  projectManager  PlatformUser?   @relation("ProjectPM", fields: [projectManagerId], references: [id])
+  designs         SystemDesign[]
+  assets          BatteryAsset[]
+  survey          SiteSurvey?
+  permits         Permit[]
+  interconnection Interconnection?
+  inspections     Inspection[]
+  jobPostings     JobPosting[]
+  workOrders      WorkOrder[]
+  monitoringSite  MonitoringSite?
+  alerts          Alert[]
+  tasks           Task[]
+  documents       Document[]
+
+  @@index([stage])
+  @@index([health])
+  @@map("projects")
+}
+
+model BatteryModel {
+  id           String   @id @default(cuid())
+  manufacturer String
+  model        String
+  nameplateKwh Decimal
+  continuousKw Decimal
+  chemistry    String
+  warrantyYears Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  designs SystemDesign[]
+  assets  BatteryAsset[]
+
+  @@map("battery_models")
+}
+
+model SystemDesign {
+  id            String   @id @default(cuid())
+  projectId     String
+  version       Int
+  batteryModelId String
+  quantity      Int
+  usableKwh     Decimal
+  continuousKw  Decimal
+  inverterModel String
+  solarCoupled  Boolean  @default(false)
+  backupLoads   Json?
+  isCurrent     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project      Project      @relation(fields: [projectId], references: [id])
+  batteryModel BatteryModel @relation(fields: [batteryModelId], references: [id])
+
+  @@index([projectId])
+  @@map("system_designs")
+}
+
+model BatteryAsset {
+  id            String      @id @default(cuid())
+  batteryModelId String
+  projectId     String?
+  serialNumber  String      @unique
+  status        AssetStatus @default(IN_STOCK)
+  installedAt   DateTime?
+  warrantyEndsAt DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  batteryModel BatteryModel @relation(fields: [batteryModelId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+
+  @@index([status])
+  @@map("battery_assets")
+}
+
+model SiteSurvey {
+  id           String       @id @default(cuid())
+  projectId    String       @unique
+  workOrderId  String?      @unique
+  scheduledAt  DateTime?
+  completedAt  DateTime?
+  status       SurveyStatus @default(SCHEDULED)
+  mainPanelAmps Int?
+  findings     Json?
+  photoDocIds  String[]     @default([])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id])
+  workOrder WorkOrder? @relation(fields: [workOrderId], references: [id])
+
+  @@map("site_surveys")
+}
+
+// ==== COMPLIANCE domain ====
+model Permit {
+  id          String       @id @default(cuid())
+  projectId   String
+  ahjId       String
+  type        PermitType
+  number      String?
+  status      PermitStatus @default(NOT_STARTED)
+  submittedAt DateTime?
+  approvedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id])
+  ahj         Ahj          @relation(fields: [ahjId], references: [id])
+  inspections Inspection[]
+
+  @@index([projectId])
+  @@map("permits")
+}
+
+model Interconnection {
+  id               String   @id @default(cuid())
+  projectId        String   @unique
+  utilityId        String
+  applicationNumber String?
+  status           IxStatus @default(NOT_STARTED)
+  submittedAt      DateTime?
+  approvedAt       DateTime?
+  ptoAt            DateTime?
+  programEnrollment String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+  utility Utility @relation(fields: [utilityId], references: [id])
+
+  @@map("interconnections")
+}
+
+model Inspection {
+  id          String           @id @default(cuid())
+  projectId   String
+  permitId    String?
+  type        String
+  scheduledAt DateTime?
+  result      InspectionResult @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+  permit  Permit? @relation(fields: [permitId], references: [id])
+
+  @@index([projectId])
+  @@map("inspections")
+}
+
+// ==== FIELD domain ====
+model Contractor {
+  id                 String           @id @default(cuid())
+  companyName        String
+  licenseNumber      String
+  licenseExpiresAt   DateTime
+  insuranceExpiresAt DateTime
+  serviceCounties    String[]         @default([])
+  certifications     String[]         @default([])
+  rating             Float?
+  status             ContractorStatus @default(PENDING)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  bids            Bid[]
+  workOrders      WorkOrder[]
+  contractorUsers ContractorUser[]
+
+  @@map("contractors")
+}
+
+model ContractorUser {
+  id           String         @id @default(cuid())
+  contractorId String
+  userId       String
+  role         ContractorRole @default(TECH)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  contractor Contractor   @relation(fields: [contractorId], references: [id])
+  user       PlatformUser @relation(fields: [userId], references: [id])
+
+  @@unique([contractorId, userId])
+  @@map("contractor_users")
+}
+
+model JobPosting {
+  id           String        @id @default(cuid())
+  projectId    String
+  scope        JobScope
+  county       String
+  budgetCents  Int?
+  windowStart  DateTime
+  windowEnd    DateTime
+  bidsCloseAt  DateTime
+  status       PostingStatus @default(OPEN)
+  awardedBidId String?       @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  project    Project    @relation(fields: [projectId], references: [id])
+  bids       Bid[]      @relation("PostingBids")
+  awardedBid Bid?       @relation("AwardedBid", fields: [awardedBidId], references: [id])
+  workOrder  WorkOrder?
+
+  @@index([status])
+  @@index([county])
+  @@map("job_postings")
+}
+
+model Bid {
+  id           String    @id @default(cuid())
+  jobPostingId String
+  contractorId String
+  amountCents  Int
+  proposedStart DateTime
+  note         String?
+  status       BidStatus @default(SUBMITTED)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  jobPosting JobPosting  @relation("PostingBids", fields: [jobPostingId], references: [id])
+  contractor Contractor  @relation(fields: [contractorId], references: [id])
+  awardedFor JobPosting? @relation("AwardedBid")
+
+  @@unique([jobPostingId, contractorId])
+  @@map("bids")
+}
+
+model WorkOrder {
+  id           String          @id @default(cuid())
+  jobPostingId String          @unique
+  projectId    String
+  contractorId String
+  scope        JobScope
+  status       WorkOrderStatus @default(AWARDED)
+  scheduledAt  DateTime?
+  completedAt  DateTime?
+  checklist    Json?
+  qualityScore Int?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  jobPosting JobPosting  @relation(fields: [jobPostingId], references: [id])
+  project    Project     @relation(fields: [projectId], references: [id])
+  contractor Contractor  @relation(fields: [contractorId], references: [id])
+  survey     SiteSurvey?
+  alerts     Alert[]
+
+  @@index([projectId])
+  @@map("work_orders")
+}
+
+// ==== FLEET domain ====
+model MonitoringSite {
+  id             String    @id @default(cuid())
+  projectId      String    @unique
+  provider       String
+  providerSiteId String
+  commissionedAt DateTime?
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  project   Project             @relation(fields: [projectId], references: [id])
+  telemetry TelemetrySnapshot[]
+  alerts    Alert[]
+
+  @@map("monitoring_sites")
+}
+
+model TelemetrySnapshot {
+  id               BigInt   @id @default(autoincrement())
+  monitoringSiteId String
+  ts               DateTime
+  soc              Float
+  powerKw          Float
+  mode             String
+  gridConnected    Boolean  @default(true)
+
+  monitoringSite MonitoringSite @relation(fields: [monitoringSiteId], references: [id])
+
+  @@index([monitoringSiteId, ts])
+  @@map("telemetry_snapshots")
+}
+
+model Alert {
+  id               String    @id @default(cuid())
+  monitoringSiteId String
+  projectId        String
+  code             String
+  message          String
+  severity         Severity  @default(INFO)
+  openedAt         DateTime  @default(now())
+  acknowledgedAt   DateTime?
+  resolvedAt       DateTime?
+  workOrderId      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  monitoringSite MonitoringSite @relation(fields: [monitoringSiteId], references: [id])
+  project        Project        @relation(fields: [projectId], references: [id])
+  workOrder      WorkOrder?     @relation(fields: [workOrderId], references: [id])
+
+  @@index([severity])
+  @@index([projectId])
+  @@map("alerts")
+}
