@@ -14,6 +14,13 @@ import prisma from '../config/database';
 
 const router = Router();
 
+// Fail-closed admin allowlist: only these emails may exchange a Firebase token
+// for an admin JWT. Set via ADMIN_EMAILS (comma-separated) in the backend env.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
 router.post('/login', validate(loginSchema), async (req, res) => {
   if (!isFirebaseConfigured()) {
     return res
@@ -22,7 +29,12 @@ router.post('/login', validate(loginSchema), async (req, res) => {
   }
   try {
     const decoded = await getFirebaseAdmin().auth().verifyIdToken(req.body.idToken);
-    const email = decoded.email ?? '';
+    const email = (decoded.email ?? '').toLowerCase();
+    if (!email || !ADMIN_EMAILS.includes(email)) {
+      return res
+        .status(HTTP_STATUS.FORBIDDEN)
+        .json(errorResponse('NOT_AUTHORIZED', 'This account is not an authorized admin.'));
+    }
     const user = await prisma.user.upsert({
       where: { firebaseUid: decoded.uid },
       update: { email },
