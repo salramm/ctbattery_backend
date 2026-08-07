@@ -16,6 +16,7 @@ import tariffsRouter from './routes/tariffs';
 import analyzeRouter from './routes/analyze';
 import applicationsRouter from './routes/applications';
 import leadsRouter from './routes/leads';
+import loiRouter from './routes/loi';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -72,6 +73,9 @@ app.get('/api', (_req: Request, res: Response) => {
         'POST /api/analyze': 'BESS savings model (C&I engine)',
         'POST /api/leads': 'join the waitlist (public)',
         'GET  /api/leads': 'list waitlist leads (admin)',
+        'POST /api/loi': 'sign a Letter of Intent → returns PDF (public)',
+        'GET  /api/loi': 'list LOIs (admin)',
+        'GET  /api/loi/:id/pdf': 'download an LOI PDF (admin)',
         'POST /api/applications': 'submit a consumer application (public)',
         'POST /api/applications/:id/panel-photo': 'upload panel photo (public)',
         'GET  /api/applications': 'list applications (admin)',
@@ -90,6 +94,7 @@ app.use('/api/tariffs', tariffsRouter);
 app.use('/api/analyze', analyzeRouter);
 app.use('/api/applications', applicationsRouter);
 app.use('/api/leads', leadsRouter);
+app.use('/api/loi', loiRouter);
 
 // ==== Error + 404 handlers ====================================================
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

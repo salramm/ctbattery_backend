@@ -261,3 +261,32 @@ model Lead {
   @@index([createdAt])
   @@map("leads")
 }
+
+/// Non-binding Letter of Intent signed on the site. Captures the site owner's
+/// interest + a typed e-signature; the PDF is generated on demand from this data.
+model Loi {
+  id              Int      @id @default(autoincrement())
+  loiNumber       String   @unique @map("loi_number") @db.VarChar(32)
+  // Site owner
+  siteOwnerName   String   @map("site_owner_name") @db.VarChar(200)
+  propertyAddress String   @map("property_address") @db.VarChar(400)
+  email           String   @db.VarChar(255)
+  phone           String?  @db.VarChar(40)
+  // Proposed project
+  batteryCount    String?  @map("battery_count") @db.VarChar(20) // one | two | three_plus
+  rooftopSolar    String?  @map("rooftop_solar") @db.VarChar(20) // yes | no | planned
+  timeframe       String?  @db.VarChar(20)                       // asap | flexible
+  reasons         String[] @default([])                          // multi-select
+  reasonOther     String?  @map("reason_other") @db.VarChar(300)
+  // E-signature
+  signedName      String   @map("signed_name") @db.VarChar(200)
+  signedAt        DateTime @default(now()) @map("signed_at")
+  signatureIp     String?  @map("signature_ip") @db.VarChar(64)
+  source          String?  @db.VarChar(64)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("lois")
+}
