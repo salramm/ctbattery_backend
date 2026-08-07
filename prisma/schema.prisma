@@ -254,6 +254,7 @@ model Lead {
   cityOrZip String?  @map("city_or_zip") @db.VarChar(120)
   phone     String?  @db.VarChar(40)
   tenure    String?  @db.VarChar(40)
+  utility   String?  @db.VarChar(80)
   source    String?  @db.VarChar(64)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

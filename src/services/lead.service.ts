@@ -12,6 +12,7 @@ export interface CreateLeadInput {
   cityOrZip?: string;
   phone?: string;
   tenure?: string;
+  utility?: string;
   source?: string;
 }
 
@@ -24,6 +25,7 @@ export async function createLead(input: CreateLeadInput) {
     cityOrZip: input.cityOrZip,
     phone: input.phone,
     tenure: input.tenure,
+    utility: input.utility,
     source: input.source ?? 'pre-approval-landing',
   };
   return prisma.lead.upsert({ where: { email }, create: data, update: data });

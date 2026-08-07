@@ -8,6 +8,7 @@ export const createLeadSchema = z.object({
     cityOrZip: z.string().max(120).optional(),
     phone: z.string().max(40).optional(),
     tenure: z.string().max(40).optional(),
+    utility: z.string().max(80).optional(),
     source: z.string().max(64).optional(),
   }),
 });
