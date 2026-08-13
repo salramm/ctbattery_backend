@@ -28,13 +28,16 @@ const SERVICE = 'ctbs-backend';
 // the real client IP from X-Forwarded-For.
 app.set('trust proxy', 1);
 
-// Browsers hit Netlify's same-origin /api proxy in prod; this allowlist covers
-// direct/dev access and server-to-server calls (which send no Origin header).
+// In prod browsers hit the same-origin /api proxy; this allowlist covers direct/
+// dev access and server-to-server calls (which send no Origin header). Localhost
+// dev origins are always allowed (harmless — Origin can't be spoofed cross-site).
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3001',
+  process.env.FRONTEND_URL,
   'https://ctbatterysolutions.com',
   'https://www.ctbatterysolutions.com',
-];
+  'http://localhost:3001',
+  'http://localhost:3000',
+].filter(Boolean) as string[];
 
 app.use(helmet());
 app.use(
