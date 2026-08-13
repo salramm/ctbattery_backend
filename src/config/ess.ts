@@ -28,7 +28,18 @@ export const ESS_LAYERS = {
     file: 'nmtc-low-income-2020.geojson',
     label: 'NMTC Low-Income Communities (§48(e) Cat 1, +10% ITC)',
   },
+  'ui-service-areas': {
+    file: 'ui_service_areas.geojson',
+    label: 'United Illuminating service territory',
+  },
+  'ui-grid-edge': {
+    file: 'ui_grid_edge_locations.geojson',
+    label: 'UI Grid Edge circuits ($130/kWh enrollment)',
+  },
 } as const;
+
+// Distance (meters) within which an address is treated as on a UI Grid Edge circuit.
+export const GRID_EDGE_PROXIMITY_M = 250;
 
 export type EssLayerName = keyof typeof ESS_LAYERS;
 

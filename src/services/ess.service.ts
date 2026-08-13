@@ -116,6 +116,13 @@ export async function qualifyEss(input: EssQualifyInput) {
   }
   if (geo.inNmtcLowIncome && !mfahQualifying) reasons.push('In an NMTC low-income census tract — §48(e) Cat 1 (+10% ITC)');
 
+  // Grid Edge (UI only): near a Grid Edge circuit → $130/kWh enrollment (verify);
+  // in UI territory but not near one → not grid edge; outside UI → unconfirmed.
+  const gridEdge = geo.nearGridEdge ? 'likely' : geo.inUiServiceArea ? 'no' : 'unconfirmed';
+  const enrollmentPerKwh = geo.nearGridEdge ? GRID_EDGE_ENROLLMENT_PER_KWH : tier.enrollmentPerKwh;
+  if (geo.inUiServiceArea) reasons.push(`In United Illuminating service territory${geo.uiTown ? ` (${geo.uiTown})` : ''}`);
+  if (geo.nearGridEdge) reasons.push(`On/near a UI Grid Edge circuit${geo.gridEdgeCircuit ? ` (#${geo.gridEdgeCircuit})` : ''} — enrollment may be $${GRID_EDGE_ENROLLMENT_PER_KWH}/kWh (verify with UI)`);
+
   return {
     located: true,
     address,
@@ -131,13 +138,15 @@ export async function qualifyEss(input: EssQualifyInput) {
     reasons,
     compensation: {
       enhanced: tier.enhanced,
-      enrollmentPerKwh: tier.enrollmentPerKwh,
+      enrollmentPerKwh,
+      baseEnrollmentPerKwh: tier.enrollmentPerKwh,
       gridEdgeEnrollmentPerKwh: GRID_EDGE_ENROLLMENT_PER_KWH,
-      gridEdge: 'unconfirmed', // no confirmed programmatic source — verify with CT Green Bank
+      gridEdge, // 'likely' (near UI Grid Edge circuit) | 'no' (UI territory) | 'unconfirmed'
+      gridEdgeCircuit: geo.gridEdgeCircuit,
       performancePerKwYearMin: tier.perfMin,
       performancePerKwYearMax: tier.perfMax,
       // legacy aliases for older mobile builds
-      oneTimeSignupUsd: tier.enrollmentPerKwh,
+      oneTimeSignupUsd: enrollmentPerKwh,
       performanceUsdPerKwhYear: tier.perfMin,
     },
     itc,

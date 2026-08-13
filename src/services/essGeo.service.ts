@@ -15,6 +15,7 @@ import {
   MUNI_GRACE_KEYS,
   GRACE_TRUE_VALUES,
   GRACE_PERIOD_TOWNS,
+  GRID_EDGE_PROXIMITY_M,
   type EssLayerName,
 } from '../config/ess';
 
@@ -98,6 +99,23 @@ export interface LocationClassification {
   energyCommunity: { category: string | null; name: string | null } | null;
   inNmtcLowIncome: boolean;
   nmtcTract: { geoid: string | null; basis: string | null } | null;
+  inUiServiceArea: boolean;
+  uiTown: string | null;
+  nearGridEdge: boolean;
+  gridEdgeCircuit: string | null;
+}
+
+// Point→segment distance in meters (equirectangular approx around the point).
+function segDistM(lat: number, lng: number, aLng: number, aLat: number, bLng: number, bLat: number): number {
+  const kx = Math.cos((lat * Math.PI) / 180) * 111320;
+  const ky = 110540;
+  const px = lng * kx, py = lat * ky;
+  const ax = aLng * kx, ay = aLat * ky, bx = bLng * kx, by = bLat * ky;
+  const dx = bx - ax, dy = by - ay;
+  const l2 = dx * dx + dy * dy;
+  let t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
 export function classifyLocation(lat: number, lng: number, town?: string | null): LocationClassification {
@@ -172,6 +190,43 @@ export function classifyLocation(lat: number, lng: number, town?: string | null)
     }
   }
 
+  // United Illuminating service territory (polygon PIP).
+  let inUi = false;
+  let uiTown: string | null = null;
+  const ui = cache.get('ui-service-areas');
+  if (ui) {
+    for (const f of ui.features) {
+      if (f.geometry && booleanPointInPolygon(pt, f as never)) {
+        inUi = true;
+        uiTown = (f.properties?.TOWN_NAME as string) ?? null;
+        break;
+      }
+    }
+  }
+
+  // UI Grid Edge circuits are lines — flag if within GRID_EDGE_PROXIMITY_M.
+  let nearGridEdge = false;
+  let gridEdgeCircuit: string | null = null;
+  const ge = cache.get('ui-grid-edge');
+  if (ge) {
+    outer: for (const f of ge.features) {
+      const g = f.geometry as { type?: string; coordinates?: unknown } | undefined;
+      if (!g?.coordinates) continue;
+      const lines = g.type === 'MultiLineString' ? (g.coordinates as number[][][]) : g.type === 'LineString' ? [g.coordinates as number[][]] : [];
+      for (const line of lines) {
+        for (let i = 1; i < line.length; i++) {
+          const [aLng, aLat] = line[i - 1];
+          const [bLng, bLat] = line[i];
+          if (segDistM(lat, lng, aLng, aLat, bLng, bLat) <= GRID_EDGE_PROXIMITY_M) {
+            nearGridEdge = true;
+            gridEdgeCircuit = (f.properties?.CIRCUITID as string) ?? null;
+            break outer;
+          }
+        }
+      }
+    }
+  }
+
   return {
     inEjBlockGroup: inEj,
     ejBlockGroupId: ejId,
@@ -183,5 +238,9 @@ export function classifyLocation(lat: number, lng: number, town?: string | null)
     energyCommunity: inEc ? { category: ecCat, name: ecName } : null,
     inNmtcLowIncome: inNmtc,
     nmtcTract: inNmtc ? { geoid: nmtcGeoid, basis: nmtcBasis } : null,
+    inUiServiceArea: inUi,
+    uiTown,
+    nearGridEdge,
+    gridEdgeCircuit,
   };
 }
