@@ -50,7 +50,8 @@ router.get('/', authenticateJWT, requireRole('ADMIN', 'OWNER'), async (req, res,
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-    const { rows, total } = await listLois(page, limit);
+    const sort = req.query.sort === 'recent' ? 'recent' : 'value';
+    const { rows, total } = await listLois(page, limit, sort);
     res.json(successResponse(rows, buildPagination(page, limit, total)));
   } catch (err) {
     next(err);

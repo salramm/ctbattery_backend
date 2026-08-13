@@ -284,11 +284,20 @@ model Loi {
   signedAt        DateTime @default(now()) @map("signed_at")
   signatureIp     String?  @map("signature_ip") @db.VarChar(64)
   source          String?  @db.VarChar(64)
+  // ESS/ITC qualification snapshot (computed from propertyAddress at signing)
+  essTier         String?  @map("ess_tier") @db.VarChar(20) // BASE | UNDERSERVED
+  underserved     Boolean?
+  energyCommunity Boolean? @map("energy_community")
+  nmtcLowIncome   Boolean? @map("nmtc_low_income")
+  itcConfirmedPct Int?     @map("itc_confirmed_pct")
+  itcPotentialPct Int?     @map("itc_potential_pct")
+  lucrativeScore  Int?     @map("lucrative_score") // higher = prioritize
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@index([email])
   @@index([createdAt])
+  @@index([lucrativeScore])
   @@map("lois")
 }
 

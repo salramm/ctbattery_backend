@@ -46,6 +46,33 @@ function buildItc(inNmtcLowIncome: boolean, inEnergyCommunity: boolean) {
   return { basePct: ITC.basePct, adders, confirmedPct, potentialPct };
 }
 
+/**
+ * Compact ESS/ITC qualification snapshot + a lucrative-ness score, for storing
+ * on an LOI and prioritizing the pipeline. Never throws — returns nulls on failure.
+ * Score = confirmed ITC % + 20 for the enhanced ESS tier (range ~30–70).
+ */
+export async function qualifyForStorage(address: string) {
+  try {
+    const q = await qualifyEss({ address });
+    if (!q.located || !q.categories) return null;
+    const c = q.categories;
+    const itcConfirmedPct = q.itc?.confirmedPct ?? null;
+    const itcPotentialPct = q.itc?.potentialPct ?? null;
+    const lucrativeScore = (itcConfirmedPct ?? 30) + (c.underserved ? 20 : 0);
+    return {
+      essTier: q.tier ?? null,
+      underserved: c.underserved,
+      energyCommunity: c.inEnergyCommunity,
+      nmtcLowIncome: c.inNmtcLowIncome,
+      itcConfirmedPct,
+      itcPotentialPct,
+      lucrativeScore,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function qualifyEss(input: EssQualifyInput) {
   let lat = input.lat;
   let lng = input.lng;

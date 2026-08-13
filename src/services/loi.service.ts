@@ -4,6 +4,7 @@
  */
 import type { Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { qualifyForStorage } from './ess.service';
 
 export interface CreateLoiInput {
   siteOwnerName: string;
@@ -33,6 +34,8 @@ async function generateLoiNumber(): Promise<string> {
 
 export async function createLoi(input: CreateLoiInput) {
   const loiNumber = await generateLoiNumber();
+  // Snapshot ESS/ITC qualification from the property address (best-effort).
+  const q = await qualifyForStorage(input.propertyAddress);
   return prisma.loi.create({
     data: {
       loiNumber,
@@ -48,6 +51,13 @@ export async function createLoi(input: CreateLoiInput) {
       signedName: input.signedName,
       signatureIp: input.signatureIp,
       source: input.source ?? 'pre-approval-landing',
+      essTier: q?.essTier ?? null,
+      underserved: q?.underserved ?? null,
+      energyCommunity: q?.energyCommunity ?? null,
+      nmtcLowIncome: q?.nmtcLowIncome ?? null,
+      itcConfirmedPct: q?.itcConfirmedPct ?? null,
+      itcPotentialPct: q?.itcPotentialPct ?? null,
+      lucrativeScore: q?.lucrativeScore ?? null,
     },
   });
 }
@@ -59,9 +69,15 @@ export function getLoi(id: number) {
 export async function listLois(
   page: number,
   limit: number,
+  sort: 'value' | 'recent' = 'value',
 ): Promise<{ rows: Prisma.LoiGetPayload<object>[]; total: number }> {
+  // Default prioritizes the most lucrative (highest score), then most recent.
+  const orderBy: Prisma.LoiOrderByWithRelationInput[] =
+    sort === 'value'
+      ? [{ lucrativeScore: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }]
+      : [{ createdAt: 'desc' }];
   const [rows, total] = await Promise.all([
-    prisma.loi.findMany({ skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }),
+    prisma.loi.findMany({ skip: (page - 1) * limit, take: limit, orderBy }),
     prisma.loi.count(),
   ]);
   return { rows, total };
