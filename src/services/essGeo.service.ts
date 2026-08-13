@@ -92,6 +92,10 @@ export interface LocationClassification {
   matchedMuni: string | null;
   inGracePeriod: boolean;
   underserved: boolean;
+  inEnergyCommunity: boolean;
+  energyCommunity: { category: string | null; name: string | null } | null;
+  inNmtcLowIncome: boolean;
+  nmtcTract: { geoid: string | null; basis: string | null } | null;
 }
 
 export function classifyLocation(lat: number, lng: number, town?: string | null): LocationClassification {
@@ -134,6 +138,38 @@ export function classifyLocation(lat: number, lng: number, town?: string | null)
   const inGrace = (inMuniPolygon && graceFlag) || inGraceList;
   const inDistressed = inMuniPolygon && !graceFlag;
 
+  // IRA Energy Community (§48 +10% ITC) — separate from the ESS underserved tier.
+  let inEc = false;
+  let ecCat: string | null = null;
+  let ecName: string | null = null;
+  const ec = cache.get('energy-communities');
+  if (ec) {
+    for (const f of ec.features) {
+      if (f.geometry && booleanPointInPolygon(pt, f as never)) {
+        inEc = true;
+        ecCat = (f.properties?.category as string) ?? null;
+        ecName = (f.properties?.name as string) ?? null;
+        break;
+      }
+    }
+  }
+
+  // NMTC low-income community (§48(e) Cat 1 +10% ITC).
+  let inNmtc = false;
+  let nmtcGeoid: string | null = null;
+  let nmtcBasis: string | null = null;
+  const nmtc = cache.get('nmtc-low-income');
+  if (nmtc) {
+    for (const f of nmtc.features) {
+      if (f.geometry && booleanPointInPolygon(pt, f as never)) {
+        inNmtc = true;
+        nmtcGeoid = (f.properties?.geoid as string) ?? null;
+        nmtcBasis = (f.properties?.basis as string) ?? null;
+        break;
+      }
+    }
+  }
+
   return {
     inEjBlockGroup: inEj,
     ejBlockGroupId: ejId,
@@ -141,5 +177,9 @@ export function classifyLocation(lat: number, lng: number, town?: string | null)
     matchedMuni,
     inGracePeriod: inGrace,
     underserved: inEj || inMuniPolygon || inGraceList,
+    inEnergyCommunity: inEc,
+    energyCommunity: inEc ? { category: ecCat, name: ecName } : null,
+    inNmtcLowIncome: inNmtc,
+    nmtcTract: inNmtc ? { geoid: nmtcGeoid, basis: nmtcBasis } : null,
   };
 }

@@ -24,14 +24,18 @@ function townFromAddress(address?: string | null): string | null {
   return null;
 }
 
-function buildItc(underserved: boolean) {
+function buildItc(inNmtcLowIncome: boolean, inEnergyCommunity: boolean) {
+  const geoApplies: Record<string, boolean> = {
+    low_income: inNmtcLowIncome, // NMTC qualified low-income census tract (§48(e) Cat 1)
+    energy_community: inEnergyCommunity, // NETL coal-closure + MSA/non-MSA FFE
+  };
   const adders = ITC.adders.map((a) => ({
     key: a.key,
     label: a.label,
     pct: a.pct,
     basis: a.basis,
-    // geo adders auto-apply in underserved areas; others need review.
-    applies: a.basis === 'geo' ? underserved : null,
+    // geo adders auto-apply from the datasets; equipment/other need review.
+    applies: a.basis === 'geo' ? (geoApplies[a.key] ?? false) : null,
   }));
   const confirmedPct = adders
     .filter((a) => a.applies === true)
@@ -75,6 +79,13 @@ export async function qualifyEss(input: EssQualifyInput) {
   if (categories.inEjBlockGroup) reasons.push('In an Environmental Justice block group');
   if (categories.inDistressedMuni) reasons.push(`In a distressed municipality${categories.matchedMuni ? ` (${categories.matchedMuni})` : ''}`);
   if (categories.inGracePeriod) reasons.push('In a grace-period town (previously distressed)');
+  if (categories.inEnergyCommunity) {
+    const ecType = categories.energyCommunity?.category === 'coal_closure' ? 'coal-closure tract' : 'fossil-fuel-employment area';
+    reasons.push(`In an IRA Energy Community — ${ecType} (+10% ITC)`);
+  }
+  if (categories.inNmtcLowIncome) {
+    reasons.push('In an NMTC low-income census tract — §48(e) Cat 1 (+10% ITC)');
+  }
 
   return {
     located: true,
@@ -90,7 +101,7 @@ export async function qualifyEss(input: EssQualifyInput) {
       performanceUsdPerKwhYear: tierConfig.performanceUsdPerKwhYear,
       enhanced: 'enhanced' in tierConfig ? tierConfig.enhanced : false,
     },
-    itc: buildItc(categories.underserved),
+    itc: buildItc(categories.inNmtcLowIncome, categories.inEnergyCommunity),
     dataStatus: essDataStatus(),
   };
 }

@@ -20,6 +20,14 @@ export const ESS_LAYERS = {
     file: 'distressed-municipalities-2025.geojson',
     label: 'EJ Distressed Municipalities (2025)',
   },
+  'energy-communities': {
+    file: 'energy-communities-2024.geojson',
+    label: 'IRA Energy Communities (+10% ITC)',
+  },
+  'nmtc-low-income': {
+    file: 'nmtc-low-income-2020.geojson',
+    label: 'NMTC Low-Income Communities (§48(e) Cat 1, +10% ITC)',
+  },
 } as const;
 
 export type EssLayerName = keyof typeof ESS_LAYERS;
@@ -65,15 +73,15 @@ export const ITC = {
   adders: [
     {
       key: 'low_income',
-      label: 'Low-Income Community (§48 (e))',
+      label: 'Low-Income Community — §48(e) Cat 1 (NMTC)',
       pct: 10,
-      basis: 'geo', // auto-applies in qualifying EJ / low-income areas
+      basis: 'geo', // NMTC qualified low-income census tract
     },
     {
       key: 'energy_community',
       label: 'Energy Community',
       pct: 10,
-      basis: 'external', // needs federal energy-community mapping
+      basis: 'geo', // NETL energy-community layers (coal-closure + MSA/non-MSA FFE)
     },
     {
       key: 'domestic_content',
