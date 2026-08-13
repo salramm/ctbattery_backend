@@ -95,6 +95,8 @@ app.get('/api', (_req: Request, res: Response) => {
         'POST /api/ess/qualify': 'address → ESS compensation tier + ITC adder stack',
         'GET  /api/ess/layers/:name': 'ESS underserved map layers (GeoJSON)',
         'GET  /api/ess/status': 'which ESS datasets are loaded',
+        'GET  /api/ess/contractors': 'ESS program contractor directory',
+        'GET  /api/ess/contractors/:id': 'ESS contractor profile',
         'POST /api/applications': 'submit a consumer application (public)',
         'POST /api/applications/:id/panel-photo': 'upload panel photo (public)',
         'GET  /api/applications': 'list applications (admin)',

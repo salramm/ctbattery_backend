@@ -12,6 +12,7 @@ import { successResponse, errorResponse } from '../utils/response';
 import { qualifyEss } from '../services/ess.service';
 import { getLayer, essDataStatus } from '../services/essGeo.service';
 import { mfahGeoJSON, mfahStatus } from '../services/mfah.service';
+import { listContractors, getContractor } from '../services/contractors.service';
 import { ESS_LAYERS, type EssLayerName } from '../config/ess';
 
 const router = Router();
@@ -40,6 +41,23 @@ router.get('/qualify', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// ESS program contractor directory.
+router.get('/contractors', (_req, res) => {
+  res.json(successResponse(listContractors()));
+});
+
+router.get('/contractors/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    return res.status(HTTP_STATUS.BAD_REQUEST).json(errorResponse('INVALID_ID', 'Invalid contractor id'));
+  }
+  const c = getContractor(id);
+  if (!c) {
+    return res.status(HTTP_STATUS.NOT_FOUND).json(errorResponse('CONTRACTOR_NOT_FOUND', 'Contractor not found'));
+  }
+  res.json(successResponse(c));
 });
 
 router.get('/status', async (_req, res, next) => {
