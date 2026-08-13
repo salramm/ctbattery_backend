@@ -301,6 +301,33 @@ model Loi {
   @@map("lois")
 }
 
+// Connecticut multifamily affordable-housing master list (LIHTC + Section 8 /
+// HUD multifamily + public housing). Drives MFAH auto-qualification for the ESS
+// Low-Income tier and the ITC §48(e) Cat 3 adder. Loaded from
+// data/ess/CT_MFAH_Master_List.csv and geocoded via Census (see import-mfah.ts).
+model MfahProperty {
+  id                  Int      @id @default(autoincrement())
+  projectName         String?  @map("project_name")
+  address             String
+  city                String
+  zip                 String?
+  units               Int?
+  sources             String[] @default([]) // LIHTC | Section8_Multifamily | Public_Housing
+  ownerOperator       String?  @map("owner_operator")
+  contactEmail        String?  @map("contact_email")
+  multiProgramOverlap Boolean  @default(false) @map("multi_program_overlap")
+  lat                 Float?
+  lng                 Float?
+  censusTractFips     String?  @map("census_tract_fips")
+  normAddress         String   @map("norm_address") // normalized "address|city" for matching
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([normAddress])
+  @@index([city])
+  @@map("mfah_properties")
+}
+
 // =============================================================================
 // TPO OPERATIONS PLATFORM  (dashboard behind /portal)
 // Implements the "TPO Platform Model" spec: 26 models across 7 domains, verbatim

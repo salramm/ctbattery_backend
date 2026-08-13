@@ -11,6 +11,7 @@ import { HTTP_STATUS } from '../constants/http-status';
 import { successResponse, errorResponse } from '../utils/response';
 import { qualifyEss } from '../services/ess.service';
 import { getLayer, essDataStatus } from '../services/essGeo.service';
+import { mfahGeoJSON, mfahStatus } from '../services/mfah.service';
 import { ESS_LAYERS, type EssLayerName } from '../config/ess';
 
 const router = Router();
@@ -41,23 +42,41 @@ router.get('/qualify', async (req, res, next) => {
   }
 });
 
-router.get('/status', (_req, res) => {
-  res.json(successResponse(essDataStatus()));
+router.get('/status', async (_req, res, next) => {
+  try {
+    const base = essDataStatus();
+    const m = await mfahStatus();
+    base.layers.push({
+      name: 'mfah-properties',
+      label: 'Affordable-housing properties (MFAH)',
+      loaded: m.count > 0,
+      features: m.geocoded, // only geocoded points render on the map
+    });
+    res.json(successResponse(base));
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.get('/layers/:name', (req, res) => {
-  const name = req.params.name as EssLayerName;
-  if (!(name in ESS_LAYERS)) {
-    return res.status(HTTP_STATUS.NOT_FOUND).json(errorResponse('LAYER_NOT_FOUND', 'Unknown layer'));
+router.get('/layers/:name', async (req, res, next) => {
+  try {
+    if (req.params.name === 'mfah-properties') {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.json(await mfahGeoJSON());
+    }
+    const name = req.params.name as EssLayerName;
+    if (!(name in ESS_LAYERS)) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json(errorResponse('LAYER_NOT_FOUND', 'Unknown layer'));
+    }
+    const fc = getLayer(name);
+    if (!fc) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json(errorResponse('LAYER_NOT_LOADED', `Layer "${name}" data not uploaded yet`));
+    }
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(fc); // raw GeoJSON (not enveloped) so Leaflet can consume directly
+  } catch (err) {
+    next(err);
   }
-  const fc = getLayer(name);
-  if (!fc) {
-    return res
-      .status(HTTP_STATUS.NOT_FOUND)
-      .json(errorResponse('LAYER_NOT_LOADED', `Layer "${name}" data not uploaded yet`));
-  }
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.json(fc); // raw GeoJSON (not enveloped) so Leaflet can consume directly
 });
 
 export default router;

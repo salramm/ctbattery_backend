@@ -46,48 +46,28 @@ export const GRACE_TRUE_VALUES = ['yes', 'y', 'true', '1'];
 // grace flag already marks. Usually empty since the flag drives it.
 export const GRACE_PERIOD_TOWNS: string[] = [];
 
-// ---- ESS compensation tiers ------------------------------------------------
-// Base applies to any qualifying CT address; underserved applies inside an EJ
-// block group, a distressed municipality, or a grace-period town.
-export const ESS_COMPENSATION = {
-  base: {
-    key: 'BASE',
-    label: 'Standard',
-    oneTimeSignupUsd: 30,
-    performanceUsdPerKwhYear: 300,
-  },
-  underserved: {
-    key: 'UNDERSERVED',
-    label: 'Underserved (EJ / distressed)',
-    oneTimeSignupUsd: 30, // CONFIRM underserved figures
-    performanceUsdPerKwhYear: 300, // CONFIRM underserved uplift
-    enhanced: true,
-  },
+// ---- ESS compensation tiers (CT Energy Storage Solutions) ------------------
+// Priority: LOW_INCOME (MFAH auto-qualify) > UNDERSERVED (EJ / distressed) > STANDARD.
+// Enrollment is a one-time $/kWh at commissioning; performance is a 10-yr annual
+// $/kW-yr (Active Dispatch). Grid Edge would raise enrollment to $130/kWh but has
+// no confirmed programmatic source — surfaced as "unconfirmed", never defaulted.
+export const ESS_TIERS = {
+  STANDARD: { key: 'STANDARD', label: 'Standard', enrollmentPerKwh: 30, perfMin: 300, perfMax: 300, enhanced: false },
+  UNDERSERVED: { key: 'UNDERSERVED', label: 'Underserved', enrollmentPerKwh: 30, perfMin: 425, perfMax: 450, enhanced: true },
+  LOW_INCOME: { key: 'LOW_INCOME', label: 'Low-Income', enrollmentPerKwh: 30, perfMin: 525, perfMax: 550, enhanced: true },
 } as const;
 
-// ---- Federal ITC adder stack (percent of eligible basis) -------------------
-// Base ITC 30%. Adders stack; geographic ones auto-flag from the datasets,
-// equipment/community ones need separate confirmation.
+export const GRID_EDGE_ENROLLMENT_PER_KWH = 130;
+
+// ---- Federal ITC (§48E) adder percentages ----------------------------------
+// Base 30% (auto for <1 MW — no prevailing-wage burden). Energy Community and
+// Domestic Content stack. The Low-Income Community adder is Cat 1 XOR Cat 3
+// (mutually exclusive — pick the higher available): Cat 1 (+10%) is purely
+// geographic (NMTC tract); Cat 3 (+20%) is structural (MFAH + benefit-sharing).
 export const ITC = {
   basePct: 30,
-  adders: [
-    {
-      key: 'low_income',
-      label: 'Low-Income Community — §48(e) Cat 1 (NMTC)',
-      pct: 10,
-      basis: 'geo', // NMTC qualified low-income census tract
-    },
-    {
-      key: 'energy_community',
-      label: 'Energy Community',
-      pct: 10,
-      basis: 'geo', // NETL energy-community layers (coal-closure + MSA/non-MSA FFE)
-    },
-    {
-      key: 'domestic_content',
-      label: 'Domestic Content',
-      pct: 10,
-      basis: 'equipment', // depends on hardware sourcing
-    },
-  ],
+  energyCommunityPct: 10,
+  domesticContentPct: 10,
+  liCat1Pct: 10, // NMTC low-income tract (geographic)
+  liCat3Pct: 20, // MFAH qualified low-income residential building (structural)
 } as const;

@@ -56,12 +56,14 @@ export function essDataStatus() {
   const ej = cache.get('ej-block-groups');
   const muni = cache.get('distressed-municipalities');
   return {
-    layers: (Object.keys(ESS_LAYERS) as EssLayerName[]).map((name) => ({
-      name,
-      label: ESS_LAYERS[name].label,
-      loaded: !!cache.get(name),
-      features: cache.get(name)?.features.length ?? 0,
-    })),
+    layers: (Object.keys(ESS_LAYERS) as EssLayerName[]).map(
+      (name): { name: string; label: string; loaded: boolean; features: number } => ({
+        name,
+        label: ESS_LAYERS[name].label,
+        loaded: !!cache.get(name),
+        features: cache.get(name)?.features.length ?? 0,
+      }),
+    ),
     ejBlockGroupsLoaded: !!ej,
     distressedMunisLoaded: !!muni,
     gracePeriodTowns: GRACE_PERIOD_TOWNS.length,
