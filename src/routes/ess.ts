@@ -1,0 +1,63 @@
+/**
+ * ESS qualification + map layers.
+ *   POST /api/ess/qualify        address|coords → compensation tier + ITC stack
+ *   GET  /api/ess/qualify?address=...           (convenience)
+ *   GET  /api/ess/layers/:name   raw GeoJSON for the dashboard map overlays
+ *   GET  /api/ess/status         which datasets are loaded
+ * Public (the dashboard consumes it; datasets are public program data).
+ */
+import { Router } from 'express';
+import { HTTP_STATUS } from '../constants/http-status';
+import { successResponse, errorResponse } from '../utils/response';
+import { qualifyEss } from '../services/ess.service';
+import { getLayer, essDataStatus } from '../services/essGeo.service';
+import { ESS_LAYERS, type EssLayerName } from '../config/ess';
+
+const router = Router();
+
+async function handleQualify(body: { address?: string; lat?: number; lng?: number; town?: string }, res: import('express').Response) {
+  const result = await qualifyEss({
+    address: typeof body.address === 'string' ? body.address : undefined,
+    lat: body.lat != null ? Number(body.lat) : undefined,
+    lng: body.lng != null ? Number(body.lng) : undefined,
+    town: typeof body.town === 'string' ? body.town : undefined,
+  });
+  res.json(successResponse(result));
+}
+
+router.post('/qualify', async (req, res, next) => {
+  try {
+    await handleQualify(req.body ?? {}, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/qualify', async (req, res, next) => {
+  try {
+    await handleQualify(req.query as never, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/status', (_req, res) => {
+  res.json(successResponse(essDataStatus()));
+});
+
+router.get('/layers/:name', (req, res) => {
+  const name = req.params.name as EssLayerName;
+  if (!(name in ESS_LAYERS)) {
+    return res.status(HTTP_STATUS.NOT_FOUND).json(errorResponse('LAYER_NOT_FOUND', 'Unknown layer'));
+  }
+  const fc = getLayer(name);
+  if (!fc) {
+    return res
+      .status(HTTP_STATUS.NOT_FOUND)
+      .json(errorResponse('LAYER_NOT_LOADED', `Layer "${name}" data not uploaded yet`));
+  }
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.json(fc); // raw GeoJSON (not enveloped) so Leaflet can consume directly
+});
+
+export default router;

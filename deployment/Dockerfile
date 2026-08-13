@@ -28,6 +28,8 @@ COPY --from=builder /app/dist ./dist
 # Runtime geo asset for in-memory point-in-polygon. The large source data
 # (usurdb.json, full territories.geojson, SQLite) is NOT shipped in the image.
 COPY data/territories-simple.geojson ./data/territories-simple.geojson
+# ESS underserved-geography layers (EJ block groups, distressed munis).
+COPY data/ess ./data/ess
 
 RUN chown -R apiuser:nodejs /app
 USER apiuser

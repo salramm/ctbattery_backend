@@ -18,6 +18,7 @@ import applicationsRouter from './routes/applications';
 import leadsRouter from './routes/leads';
 import loiRouter from './routes/loi';
 import opsRouter from './routes/ops';
+import essRouter from './routes/ess';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -88,6 +89,9 @@ app.get('/api', (_req: Request, res: Response) => {
         'GET  /api/ops/pipeline': 'sales pipeline by status (admin)',
         'GET  /api/ops/contractors': 'contractor directory (admin)',
         'GET  /api/ops/jobs': 'job board postings (admin)',
+        'POST /api/ess/qualify': 'address → ESS compensation tier + ITC adder stack',
+        'GET  /api/ess/layers/:name': 'ESS underserved map layers (GeoJSON)',
+        'GET  /api/ess/status': 'which ESS datasets are loaded',
         'POST /api/applications': 'submit a consumer application (public)',
         'POST /api/applications/:id/panel-photo': 'upload panel photo (public)',
         'GET  /api/applications': 'list applications (admin)',
@@ -108,6 +112,7 @@ app.use('/api/applications', applicationsRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/loi', loiRouter);
 app.use('/api/ops', opsRouter);
+app.use('/api/ess', essRouter);
 
 // ==== Error + 404 handlers ====================================================
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
