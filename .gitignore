@@ -18,3 +18,6 @@ data/*.db-wal
 data/*.db-shm
 
 .DS_Store
+
+# Eversource Grid Edge raw source (700MB+) — tiled into apps/web/public/tiles/grid_edge.pmtiles instead
+data/ess/Eversource_grid_map_data/

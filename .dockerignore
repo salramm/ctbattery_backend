@@ -12,3 +12,6 @@ data/*.db
 data/*.db-wal
 data/*.db-shm
 # Keep data/territories-simple.geojson (runtime asset) — do NOT ignore it.
+
+# Eversource Grid Edge raw source — not needed in the backend image (map-only, served as tiles by web)
+data/ess/Eversource_grid_map_data/
