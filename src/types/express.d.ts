@@ -9,7 +9,7 @@ declare global {
     interface Request {
       user?: {
         userId: number;
-        firebaseUid: string;
+        firebaseUid: string | null;
         email: string;
         role: string;
       };

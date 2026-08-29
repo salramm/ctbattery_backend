@@ -1,6 +1,12 @@
 // CT Battery Solutions — data model.
 // Conventions: PascalCase models, snake_case columns via @map, enums @@map'd,
 // createdAt/updatedAt everywhere, indexes on every where/orderBy column.
+//
+// LIFECYCLE RE-MODEL (P1). `systems` is the sun; everything orbits it. The former
+// four-table conversion spine (SalesLead → Customer → Project → BatteryAsset) is
+// FROZEN — retained as a backfill source and for reference, but no application code
+// writes to it (see docs/lifecycle/ + ROLLOUT-NOTES.md). Tables marked "migrated in
+// place" were reshaped by the data-foundation migration, never copied in parallel.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,14 +17,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==== ENUMS ===================================================================
-
-enum UserRole {
-  ADMIN
-  OWNER
-
-  @@map("user_role")
-}
+// ==== CONSUMER / REFERENCE ENUMS (retained) ==================================
 
 enum EligibilityKind {
   STANDARD
@@ -45,37 +44,988 @@ enum OwnerOutreachMode {
   @@map("owner_outreach_mode")
 }
 
-// ==== MODELS ==================================================================
+// ==== LIFECYCLE ENUMS (01 §Enums) ============================================
 
-/// Admin portal users. Identity verified by Firebase; the API issues its own JWT.
+enum Stage {
+  S01_LEAD
+  S02_QUALIFIED
+  S03_COMMITTED
+  S04_APPLIED
+  S05_ENTITLED
+  S06_SCHEDULED
+  S07_INSTALLED
+  S08_COMMISSIONED
+  S09_LIVE
+  OPERATING
+
+  @@map("stage")
+}
+
+enum TerminalState {
+  DISQUALIFIED
+  WITHDRAWN
+  EXPIRED
+  REMOVED
+  TERM_COMPLETE
+
+  @@map("terminal_state")
+}
+
+// NON-ADDITIVE: value replacement of the former Health enum (ON_TRACK/AT_RISK/BLOCKED).
+enum HealthState {
+  OK
+  WATCH
+  FAULT
+  SERVICE
+
+  @@map("health")
+}
+
+enum Flag {
+  TURNOVER
+  WARRANTY
+
+  @@map("flag")
+}
+
+enum Tier {
+  LI
+  UNDERSERVED
+  STANDARD
+
+  @@map("tier")
+}
+
+enum Connection {
+  M1
+  M2
+  M3
+  M4
+  M5
+
+  @@map("connection")
+}
+
+enum AccountType {
+  HA
+  OWNER
+  CAA
+  CBO
+  INDIVIDUAL
+
+  @@map("account_type")
+}
+
+enum DealState {
+  D1_TARGET
+  D2_ENGAGED
+  D3_PRESENTED
+  D4_PILOT
+  D5_MASTER
+  D6_RELEASING
+  D7_EXPANSION
+
+  @@map("deal_state")
+}
+
+enum ChecklistState {
+  OPEN
+  NA
+  DONE
+
+  @@map("checklist_state")
+}
+
+enum HistoryVia {
+  AUTO
+  MANUAL
+  OVERRIDE
+
+  @@map("history_via")
+}
+
+// NON-ADDITIVE: widened from the former DocType (LOI/TPO_AGREEMENT/NTP/PERMIT_SET/…).
+enum DocumentType {
+  ESA
+  TC
+  PAYEE_DESIGNATION
+  MASTER_AGMT
+  PERMIT
+  IX_APPROVAL
+  SELF_INSPECTION
+  ROF_LETTER
+  COF_LETTER
+  APPENDIX_E
+  ATTESTATION
+  PHOTO
+  STATEMENT
+  OTHER
+
+  @@map("doc_type")
+}
+
+enum DocStatus {
+  DRAFT
+  SENT
+  SIGNED
+  VOID
+
+  @@map("doc_status")
+}
+
+enum EquipKind {
+  BATTERY
+  COMBINER
+  COLLAR
+  GATEWAY
+
+  @@map("equip_kind")
+}
+
+// NON-ADDITIVE: value rename RMA → RMA_OUT (D4).
+enum EquipStatus {
+  IN_STOCK
+  ALLOCATED
+  INSTALLED
+  RMA_OUT
+  RETIRED
+
+  @@map("equip_status")
+}
+
+enum WoType {
+  INSTALL
+  SERVICE
+  INSPECTION
+  TURNOVER
+
+  @@map("wo_type")
+}
+
+// NON-ADDITIVE: replaces WorkOrderStatus (AWARDED/IN_PROGRESS/SUBMITTED/ACCEPTED/REWORK).
+enum WoStatus {
+  DRAFT
+  SCHEDULED
+  CHECKED_IN
+  COMPLETE
+  CANCELLED
+
+  @@map("wo_status")
+}
+
+// NON-ADDITIVE: replaces Severity (INFO/WARN/CRITICAL); remapped on migration.
+enum AlertSeverity {
+  WATCH
+  FAULT
+
+  @@map("alert_severity")
+}
+
+enum TicketState {
+  NEW
+  TRIAGED
+  REMOTE_ATTEMPTED
+  FIELD_NEEDED
+  SCHEDULED
+  ON_SITE
+  RESOLVED
+  VERIFIED
+  CLOSED
+
+  @@map("ticket_state")
+}
+
+enum TicketCategory {
+  COMMS
+  HARDWARE
+  PERFORMANCE
+  PHYSICAL
+  RESIDENT
+
+  @@map("ticket_category")
+}
+
+enum ResolutionCode {
+  REMOTE_FIX
+  HARDWARE_RMA
+  WIRING
+  RESIDENT_ACTION
+  NO_FAULT
+
+  @@map("resolution_code")
+}
+
+enum LedgerType {
+  ENROLL_INC
+  PERF_PAY
+  ITC_CASH
+  OPEX
+  SERVICE_COST
+
+  @@map("ledger_type")
+}
+
+enum LedgerStatus {
+  EXPECTED
+  RECEIVED
+  VARIANCE
+
+  @@map("ledger_status")
+}
+
+enum SeasonStatus {
+  OPEN
+  CLOSED
+  RECONCILED
+
+  @@map("season_status")
+}
+
+enum ClaimStatus {
+  ACCRUING
+  BASIS_LOCKED
+  EVIDENCE_COMPLETE
+  IN_COHORT
+  TRANSFERRED
+
+  @@map("claim_status")
+}
+
+enum CohortStatus {
+  ASSEMBLING
+  LISTED
+  TERM_SHEET
+  DILIGENCE
+  EXECUTED
+  CASH_RECEIVED
+
+  @@map("cohort_status")
+}
+
+enum BasisSource {
+  PO
+  WO
+  PERMIT
+  OVERHEAD
+
+  @@map("basis_source")
+}
+
+enum AllocCategory {
+  CAT1
+  CAT3
+
+  @@map("alloc_category")
+}
+
+enum EventSource {
+  ENERGYHUB_CSV
+  ENLIGHTEN_XCHECK
+  MANUAL
+
+  @@map("event_source")
+}
+
+// NON-ADDITIVE: consolidates UserRole (ADMIN/OWNER) + PlatformRole (SALES_REP/…/HOMEOWNER).
+enum Role {
+  ADMIN
+  OPS
+  FIELD
+  VIEWER
+
+  @@map("role")
+}
+
+enum PoStatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  PARTIAL
+
+  @@map("po_status")
+}
+
+// ==== SYSTEM TABLES: users + activity_log ====================================
+
+/// Consolidated platform users (formerly `User` + `PlatformUser`). Identity for
+/// admins is verified by Firebase; the API issues its own JWT. Firebase link kept (R6).
 model User {
   id          Int      @id @default(autoincrement())
-  firebaseUid String   @unique @map("firebase_uid") @db.VarChar(128)
+  firebaseUid String?  @unique @map("firebase_uid") @db.VarChar(128) // NON-ADDITIVE: relaxed to nullable (non-Firebase staff)
   email       String   @unique @db.VarChar(255)
   name        String?  @db.VarChar(255)
-  role        UserRole @default(ADMIN)
+  role        Role     @default(ADMIN)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("users")
 }
 
-/// A consumer battery application (the /ct/apply flow). Single table with grouped
-/// nullable sections; free-text selections stored as strings, branch fields as enums.
+/// Every mutation writes here (01 §Cross-cutting). Generic append-only audit log.
+model ActivityLog {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity   String
+  entityId String   @map("entity_id")
+  action   String
+  actor    String?
+  at       DateTime @default(now())
+  meta     Json?
+
+  @@index([entity, entityId])
+  @@map("activity_log")
+}
+
+// ==== THE ONE RECORD: systems ================================================
+
+/// The lifecycle record — one row per unit. Everything orbits it (01 §systems).
+model System {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  propertyId  String  @map("property_id")
+  unitLabel   String? @map("unit_label")
+  addressLine String? @map("address_line")
+  residentId  String? @map("resident_id") @db.Uuid
+
+  stage Stage @default(S01_LEAD)
+
+  blockedCode String?   @map("blocked_code")
+  blockedAt   DateTime? @map("blocked_at")
+  blockedNote String?   @map("blocked_note")
+
+  terminalState  TerminalState? @map("terminal_state")
+  terminalReason String?        @map("terminal_reason")
+  terminalAt     DateTime?      @map("terminal_at")
+
+  health HealthState? // cache; alerts are truth. null pre-Live.
+  flags  Flag[]       @default([])
+
+  source            String?
+  connectionMethod  Connection? @map("connection_method")
+  tier              Tier?
+  lockedRates       Json?       @map("locked_rates")
+  currentSnapshotId String?     @map("current_snapshot_id") @db.Uuid
+
+  kwRated  Decimal? @map("kw_rated")
+  kwhRated Decimal? @map("kwh_rated")
+  gridEdge Boolean? @map("grid_edge")
+
+  rofDate      DateTime? @map("rof_date") @db.Date
+  rofDeadline  DateTime? @map("rof_deadline") @db.Date
+  installDate  DateTime? @map("install_date") @db.Date
+  pisDate      DateTime? @map("pis_date") @db.Date
+  cofDate      DateTime? @map("cof_date") @db.Date
+  termEnd      DateTime? @map("term_end") @db.Date
+  warrantyEnd  DateTime? @map("warranty_end") @db.Date
+  recaptureEnd DateTime? @map("recapture_end") @db.Date
+
+  // The five external identities X1–X5 (+ related identifiers).
+  cgbAppNo        String? @map("cgb_app_no")
+  edcAccountNo    String? @map("edc_account_no")
+  edcAccountName  String? @map("edc_account_name")
+  ixAppNo         String? @map("ix_app_no")
+  enlightenSiteId String? @map("enlighten_site_id")
+  gatewaySn       String? @map("gateway_sn")
+  dermsId         String? @map("derms_id")
+  permitNo        String? @map("permit_no")
+
+  installerOfRecord Json?   @map("installer_of_record")
+  gridProfile       String? @map("grid_profile")
+  fwVersion         String? @map("fw_version")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  property       Property        @relation(fields: [propertyId], references: [id])
+  resident       Resident?       @relation("SystemCurrentResident", fields: [residentId], references: [id])
+  blockedCodeRef BlockedCode?    @relation(fields: [blockedCode], references: [code])
+  residents      Resident[]      @relation("SystemResidents")
+  qualSnapshots  QualSnapshot[]
+  enrollments    Enrollment[]
+  checklistItems ChecklistItem[]
+  stageHistory   StageHistory[]
+  documents      Document[]
+  equipment      Equipment[]
+  workOrders     WorkOrder[]
+  alerts         Alert[]
+  tickets        Ticket[]
+  events         Event[]
+  ledgerEntries  LedgerEntry[]
+  itcClaim       ItcClaim?
+  turnoverCases  TurnoverCase[]
+
+  @@unique([propertyId, unitLabel])
+  @@index([stage])
+  @@index([propertyId])
+  @@index([health])
+  @@index([blockedCode])
+  @@map("systems")
+}
+
+// ==== RELATIONSHIP LAYER =====================================================
+
+model Account {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type      AccountType
+  name      String
+  dealState DealState?  @map("deal_state")
+  notes     String?
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  contacts   AccountContact[]
+  properties Property[]
+
+  @@map("accounts")
+}
+
+model AccountContact {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId String   @map("account_id") @db.Uuid
+  name      String
+  role      String? // ED / PM / board / owner
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@index([accountId])
+  @@map("account_contacts")
+}
+
+/// Migrated in place from `addresses` (id preserved). geo computed once, inherited by units.
+model Property {
+  id              String   @id @default(cuid())
+  accountId       String?  @map("account_id") @db.Uuid
+  name            String?
+  address         String   @map("line1")
+  town            String?  @map("city")
+  state           String   @default("CT")
+  postalCode      String   @map("postal_code")
+  county          String
+  lat             Float?
+  lng             Float?
+  masterAgmtDocId String?  @map("master_agmt_doc_id")
+  geo             Json?
+  // Legacy reference dimensions retained from `addresses` (frozen spine joins).
+  utilityId       String?  @map("utility_id")
+  ahjId           String?  @map("ahj_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  account          Account?    @relation(fields: [accountId], references: [id])
+  masterAgmtDoc    Document?   @relation("PropertyMasterAgmt", fields: [masterAgmtDocId], references: [id])
+  utility          Utility?    @relation(fields: [utilityId], references: [id])
+  ahj              Ahj?        @relation(fields: [ahjId], references: [id])
+  systems          System[]
+  documents        Document[]
+  // Frozen-spine back-relations (retained; no new writes).
+  leads            SalesLead[] @relation("LeadAddress")
+  serviceCustomers Customer[]  @relation("CustServiceAddr")
+  billingCustomers Customer[]  @relation("CustBillingAddr")
+  projects         Project[]   @relation("ProjSiteAddr")
+
+  @@index([county])
+  @@map("properties")
+}
+
+/// Occupancy history — one row per occupancy; never overwrite (01 §residents).
+model Resident {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId       String    @map("system_id") @db.Uuid
+  name           String?
+  edcAccountName String?   @map("edc_account_name")
+  phone          String?
+  email          String?
+  since          DateTime? @db.Date
+  until          DateTime? @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  system           System   @relation("SystemResidents", fields: [systemId], references: [id])
+  currentOfSystems System[] @relation("SystemCurrentResident")
+
+  @@index([systemId])
+  @@map("residents")
+}
+
+// ==== LIFECYCLE LAYER ========================================================
+
+model QualSnapshot {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId          String   @map("system_id") @db.Uuid
+  version           Int
+  inputs            Json?
+  tier              Tier?
+  itcProfile        Json?    @map("itc_profile")
+  revenueProjection Json?    @map("revenue_projection")
+  runAt             DateTime @default(now()) @map("run_at")
+
+  system System @relation(fields: [systemId], references: [id])
+
+  @@index([systemId])
+  @@map("qual_snapshots")
+}
+
+model Enrollment {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId      String    @map("system_id") @db.Uuid
+  program       String    @default("ct_ess")
+  appNo         String?   @map("app_no")
+  submittedAt   DateTime? @map("submitted_at")
+  rofDate       DateTime? @map("rof_date") @db.Date
+  rofDeadline   DateTime? @map("rof_deadline") @db.Date
+  cofDate       DateTime? @map("cof_date") @db.Date
+  tier          Tier?
+  rates         Json?
+  status        String?
+  deficiencyDue DateTime? @map("deficiency_due") @db.Date
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  system System @relation(fields: [systemId], references: [id])
+
+  @@index([systemId])
+  @@map("enrollments")
+}
+
+/// Seed table — the gates read from here (01 §Seed).
+model ChecklistTemplate {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stage       Stage
+  key         String
+  label       String
+  required    Boolean @default(true)
+  conditional String? // predicate name or null
+  autoOnly    Boolean @default(false) @map("auto_only")
+  ownerRole   Role?   @map("owner_role")
+  sort        Int     @default(0)
+
+  @@unique([stage, key])
+  @@map("checklist_templates")
+}
+
+model ChecklistItem {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId  String         @map("system_id") @db.Uuid
+  stage     Stage
+  key       String
+  label     String
+  required  Boolean        @default(true)
+  state     ChecklistState @default(OPEN)
+  ownerRole Role?          @map("owner_role")
+  docId     String?        @map("doc_id")
+  doneAt    DateTime?      @map("done_at")
+  doneBy    String?        @map("done_by")
+
+  system System @relation(fields: [systemId], references: [id])
+
+  @@unique([systemId, stage, key])
+  @@index([systemId])
+  @@map("checklist_items")
+}
+
+/// Append-only (01 §stage_history). Migrated in place from `stage_transitions`.
+model StageHistory {
+  id        String     @id @default(cuid())
+  systemId  String     @map("system_id") @db.Uuid
+  fromStage Stage?     @map("from_stage")
+  toStage   Stage      @map("to_stage")
+  at        DateTime   @default(now())
+  by        String? // user id or 'system'
+  via       HistoryVia @default(AUTO)
+
+  system System @relation(fields: [systemId], references: [id])
+
+  @@unique([systemId, fromStage, toStage])
+  @@index([systemId])
+  @@map("stage_history")
+}
+
+/// Migrated in place from `documents` (Document). Scope: system / property / account.
+model Document {
+  id         String       @id @default(cuid())
+  systemId   String?      @map("system_id") @db.Uuid
+  propertyId String?      @map("property_id")
+  accountId  String?      @map("account_id") @db.Uuid
+  type       DocumentType
+  title      String?
+  envelopeId String?      @map("envelope_id")
+  status     DocStatus    @default(DRAFT)
+  signedAt   DateTime?    @map("signed_at")
+  fileKey    String?      @map("file_key")
+  uploadedBy String?      @map("uploaded_by")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  system            System?     @relation(fields: [systemId], references: [id])
+  property          Property?   @relation(fields: [propertyId], references: [id])
+  masterAgmtOfProps Property[]  @relation("PropertyMasterAgmt")
+  equipmentAttest   Equipment[] @relation("EquipAttestation")
+
+  @@index([systemId])
+  @@index([propertyId])
+  @@map("documents")
+}
+
+// ==== FIELD & EQUIPMENT LAYER ================================================
+
+/// Migrated in place from `contractors`. Marketplace/bid framing dropped.
+model Installer {
+  id          String   @id @default(cuid())
+  orgName     String   @map("org_name")
+  selfPerform Boolean  @default(false) @map("self_perform")
+  licenseNos  Json?    @map("license_nos")
+  rates       Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  crews Crew[]
+
+  @@map("installers")
+}
+
+model Crew {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  installerId    String   @map("installer_id")
+  label          String
+  members        Json? // [{name, license}]
+  capacityPerDay Int?     @map("capacity_per_day")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  installer  Installer   @relation(fields: [installerId], references: [id])
+  workOrders WorkOrder[]
+
+  @@index([installerId])
+  @@map("crews")
+}
+
+/// Migrated in place from `work_orders` (WorkOrder). jobPostingId relaxed nullable (GAP §5.5).
+model WorkOrder {
+  id           String    @id @default(cuid())
+  systemId     String?   @map("system_id") @db.Uuid
+  type         WoType    @default(INSTALL)
+  crewId       String?   @map("crew_id") @db.Uuid
+  date         DateTime?
+  routeGroup   String?   @map("route_group")
+  status       WoStatus  @default(DRAFT)
+  checklist    Json?
+  photos       Json? // [{stage_key, file_key, gps, at}]
+  checkinAt    DateTime? @map("checkin_at")
+  checkoutAt   DateTime? @map("checkout_at")
+  ticketId     String?   @map("ticket_id") @db.Uuid
+  // Retained legacy marketplace link (relaxed nullable per GAP §5.5).
+  jobPostingId String?   @unique @map("job_posting_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  system          System?     @relation(fields: [systemId], references: [id])
+  crew            Crew?       @relation(fields: [crewId], references: [id])
+  ticket          Ticket?     @relation("WorkOrderTicket", fields: [ticketId], references: [id])
+  jobPosting      JobPosting? @relation(fields: [jobPostingId], references: [id])
+  survey          SiteSurvey?
+  ticketsResolved Ticket[]    @relation("TicketWorkOrder")
+
+  @@index([systemId])
+  @@map("work_orders")
+}
+
+/// Migrated in place from `battery_assets`. Stock + installed units, one table (D4).
+model Equipment {
+  id               String      @id @default(cuid())
+  systemId         String?     @map("system_id") @db.Uuid
+  kind             EquipKind   @default(BATTERY)
+  serial           String      @unique
+  sku              String?
+  dom              Boolean?
+  attestationDocId String?     @map("attestation_doc_id")
+  fw               String?
+  status           EquipStatus @default(IN_STOCK)
+  installedAt      DateTime?   @map("installed_at")
+  removedAt        DateTime?   @map("removed_at")
+  replacedById     String?     @map("replaced_by_id")
+  rmaNo            String?     @map("rma_no")
+  poId             String?     @map("po_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  system         System?        @relation(fields: [systemId], references: [id])
+  attestationDoc Document?      @relation("EquipAttestation", fields: [attestationDocId], references: [id])
+  replacedBy     Equipment?     @relation("EquipLineage", fields: [replacedById], references: [id])
+  replaces       Equipment[]    @relation("EquipLineage")
+  po             PurchaseOrder? @relation(fields: [poId], references: [id])
+
+  @@index([status])
+  @@index([systemId])
+  @@map("equipment")
+}
+
+// ==== OPERATING LAYER ========================================================
+
+/// Migrated in place from `alerts` (Alert). Retargeted to system_id; severity remapped.
+model Alert {
+  id        String        @id @default(cuid())
+  systemId  String        @map("system_id") @db.Uuid
+  ruleKey   String?       @map("rule_key")
+  severity  AlertSeverity @default(WATCH)
+  openedAt  DateTime      @default(now()) @map("opened_at")
+  clearedAt DateTime?     @map("cleared_at")
+  context   Json?
+  ticketId  String?       @map("ticket_id") @db.Uuid
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  system System     @relation(fields: [systemId], references: [id])
+  rule   AlertRule? @relation(fields: [ruleKey], references: [key])
+  ticket Ticket?    @relation(fields: [ticketId], references: [id])
+
+  @@index([systemId])
+  @@index([ruleKey])
+  @@map("alerts")
+}
+
+model Ticket {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId       String          @map("system_id") @db.Uuid
+  category       TicketCategory
+  source         String? // auto/resident/pm/field
+  severity       AlertSeverity?
+  state          TicketState     @default(NEW)
+  linkedAlertId  String?         @map("linked_alert_id")
+  linkedEventId  String?         @map("linked_event_id") @db.Uuid
+  remoteLog      Json[]          @default([]) @map("remote_log")
+  workOrderId    String?         @map("work_order_id")
+  warrantyFlag   Boolean         @default(false) @map("warranty_flag")
+  rma            Json?
+  resolutionCode ResolutionCode? @map("resolution_code")
+  resolvedAt     DateTime?       @map("resolved_at")
+  verifiedAt     DateTime?       @map("verified_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  system             System      @relation(fields: [systemId], references: [id])
+  workOrder          WorkOrder?  @relation("TicketWorkOrder", fields: [workOrderId], references: [id])
+  linkedEvent        Event?      @relation(fields: [linkedEventId], references: [id])
+  alerts             Alert[]
+  workOrdersAssigned WorkOrder[] @relation("WorkOrderTicket")
+
+  @@index([systemId])
+  @@map("tickets")
+}
+
+model Season {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String // SUMMER / WINTER
+  programYear Int          @map("program_year")
+  window      Json? // daterange {start, end}
+  status      SeasonStatus @default(OPEN)
+
+  events        Event[]
+  ledgerEntries LedgerEntry[]
+
+  @@map("seasons")
+}
+
+model Event {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId    String       @map("system_id") @db.Uuid
+  seasonId    String?      @map("season_id") @db.Uuid
+  date        DateTime     @db.Date
+  window      String?
+  kwNominated Decimal?     @map("kw_nominated")
+  kwDelivered Decimal?     @map("kw_delivered")
+  ratio       Decimal?
+  socStart    Decimal?     @map("soc_start")
+  online      Boolean?
+  source      EventSource?
+
+  system  System   @relation(fields: [systemId], references: [id])
+  season  Season?  @relation(fields: [seasonId], references: [id])
+  tickets Ticket[]
+
+  @@unique([systemId, date, window])
+  @@index([systemId])
+  @@map("events")
+}
+
+model TurnoverCase {
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId String    @map("system_id") @db.Uuid
+  openedAt DateTime  @default(now()) @map("opened_at")
+  slaDue   DateTime? @map("sla_due")
+  tasks    Json? // {new_esa, appendix_e, edc_update, derms_verify}
+  closedAt DateTime? @map("closed_at")
+
+  system System @relation(fields: [systemId], references: [id])
+
+  @@index([systemId])
+  @@map("turnover_cases")
+}
+
+// ==== MONEY & ITC LAYER ======================================================
+
+model LedgerEntry {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId     String       @map("system_id") @db.Uuid
+  type         LedgerType
+  seasonId     String?      @map("season_id") @db.Uuid
+  cohortId     String?      @map("cohort_id") @db.Uuid
+  expectedAmt  Decimal?     @map("expected_amt")
+  expectedDate DateTime?    @map("expected_date") @db.Date
+  receivedAmt  Decimal?     @map("received_amt")
+  receivedDate DateTime?    @map("received_date") @db.Date
+  status       LedgerStatus @default(EXPECTED)
+  meta         Json?
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  system System     @relation(fields: [systemId], references: [id])
+  season Season?    @relation(fields: [seasonId], references: [id])
+  cohort ItcCohort? @relation(fields: [cohortId], references: [id])
+
+  @@index([systemId])
+  @@map("ledger_entries")
+}
+
+model ItcClaim {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  systemId     String      @unique @map("system_id") @db.Uuid
+  status       ClaimStatus @default(ACCRUING)
+  basisAmt     Decimal?    @map("basis_amt")
+  stack        Json?
+  totalPct     Decimal?    @map("total_pct")
+  creditAmt    Decimal?    @map("credit_amt")
+  pisDate      DateTime?   @map("pis_date") @db.Date
+  recaptureEnd DateTime?   @map("recapture_end") @db.Date
+  evidence     Json?
+  cohortId     String?     @map("cohort_id") @db.Uuid
+
+  system     System         @relation(fields: [systemId], references: [id])
+  cohort     ItcCohort?     @relation(fields: [cohortId], references: [id])
+  basisLines ItcBasisLine[]
+
+  @@map("itc_claims")
+}
+
+model ItcBasisLine {
+  id      String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  claimId String      @map("claim_id") @db.Uuid
+  source  BasisSource
+  amount  Decimal?
+  docId   String?     @map("doc_id")
+
+  claim ItcClaim @relation(fields: [claimId], references: [id])
+
+  @@index([claimId])
+  @@map("itc_basis_lines")
+}
+
+model ItcAllocation {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  programYear Int           @map("program_year")
+  category    AllocCategory
+  kwApplied   Decimal?      @map("kw_applied")
+  kwAwarded   Decimal?      @map("kw_awarded")
+  awardDocId  String?       @map("award_doc_id")
+  kwConsumed  Decimal?      @map("kw_consumed")
+
+  @@map("itc_allocations")
+}
+
+model ItcCohort {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label      String
+  status     CohortStatus @default(ASSEMBLING)
+  nominalAmt Decimal?     @map("nominal_amt")
+  priceCents Int?         @map("price_cents")
+  buyer      String?
+  executedAt DateTime?    @map("executed_at")
+  cashAt     DateTime?    @map("cash_at")
+
+  claims        ItcClaim[]
+  ledgerEntries LedgerEntry[]
+
+  @@map("itc_cohorts")
+}
+
+// ==== CROSS-CUTTING SEEDS + INVENTORY ========================================
+
+model BlockedCode {
+  code           String @id
+  stage          Stage
+  label          String
+  todayAfterDays Int    @default(3) @map("today_after_days")
+
+  systems System[]
+
+  @@map("blocked_codes")
+}
+
+model Clock {
+  key          String  @id
+  startsOn     String  @map("starts_on")
+  lengthMonths Int?    @map("length_months")
+  lengthDays   Int?    @map("length_days")
+  warnAt       String? @map("warn_at")
+  consequence  String?
+
+  @@map("clocks")
+}
+
+model RateTable {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  programYear        Int      @map("program_year")
+  tier               Tier
+  annualRateKwYr     Decimal? @map("annual_rate_kw_yr")
+  enrollRateGridEdge Decimal? @map("enroll_rate_grid_edge")
+  enrollRateOther    Decimal? @map("enroll_rate_other")
+  confirm            Boolean  @default(true) // placeholder flag (R5)
+
+  @@unique([programYear, tier])
+  @@map("rate_tables")
+}
+
+model AlertRule {
+  key         String        @id
+  triggerDesc String        @map("trigger_desc")
+  severity    AlertSeverity
+  autoAction  String?       @map("auto_action")
+  verifyDesc  String?       @map("verify_desc")
+
+  alerts Alert[]
+
+  @@map("alert_rules")
+}
+
+/// D4-schema: purchase orders. Receiving a PO writes IN_STOCK equipment per serial.
+model PurchaseOrder {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poNo      String    @unique @map("po_no")
+  vendor    String?
+  orderedAt DateTime? @map("ordered_at")
+  dueAt     DateTime? @map("due_at")
+  status    PoStatus  @default(DRAFT)
+  lines     Json? // [{sku, kind, qty, unit_cost}]
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  equipment Equipment[]
+
+  @@map("purchase_orders")
+}
+
+// =============================================================================
+// RETAINED CONSUMER / REFERENCE TABLES (untouched inbound + analyze engine)
+// =============================================================================
+
+/// A consumer battery application (the /ct/apply flow). Backfill source (§6f); kept
+/// as the intake form of record until P5 re-points intake.
 model Application {
   id                Int               @id @default(autoincrement())
   applicationNumber String            @unique @map("application_number") @db.VarChar(32)
   status            ApplicationStatus @default(SUBMITTED)
   source            String?           @db.VarChar(64)
 
-  // Contact
   firstName         String  @map("first_name") @db.VarChar(120)
   lastName          String  @map("last_name") @db.VarChar(120)
   email             String  @db.VarChar(255)
   phone             String  @db.VarChar(40)
   preferredLanguage String? @map("preferred_language") @db.VarChar(60)
 
-  // Property
   formattedAddress    String  @map("formatted_address") @db.VarChar(400)
   lat                 Float?
   lng                 Float?
@@ -86,19 +1036,16 @@ model Application {
   utilityAccount      String? @map("utility_account") @db.VarChar(60)
   hasMedicalEquipment Boolean @default(false) @map("has_medical_equipment")
 
-  // Eligibility snapshot (as resolved at submit time)
   eligibilityKind EligibilityKind? @map("eligibility_kind")
   resolvedUtility String?          @map("resolved_utility") @db.VarChar(160)
   resolvedCity    String?          @map("resolved_city") @db.VarChar(120)
 
-  // Install details (owner path)
   installLocation String? @map("install_location") @db.VarChar(80)
   panelAmps       String? @map("panel_amps") @db.VarChar(80)
   panelAge        String? @map("panel_age") @db.VarChar(80)
   solarStatus     String? @map("solar_status") @db.VarChar(120)
   accessNotes     String? @map("access_notes") @db.VarChar(1000)
 
-  // Renter path (owner outreach)
   ownerName            String?            @map("owner_name") @db.VarChar(200)
   ownerOrg             String?            @map("owner_org") @db.VarChar(200)
   ownerEmail           String?            @map("owner_email") @db.VarChar(255)
@@ -107,11 +1054,9 @@ model Application {
   ownerNote            String?            @map("owner_note") @db.VarChar(1000)
   renterPendingConsent Boolean            @default(false) @map("renter_pending_consent")
 
-  // Survey scheduling
   surveyDate String? @map("survey_date") @db.VarChar(40)
   surveySlot String? @map("survey_slot") @db.VarChar(40)
 
-  // Consent / ESA e-signature
   agreeReadEsa    Boolean   @default(false) @map("agree_read_esa")
   agreeAuthEnroll Boolean   @default(false) @map("agree_auth_enroll")
   agreeESign      Boolean   @default(false) @map("agree_esign")
@@ -119,7 +1064,6 @@ model Application {
   signedAt        DateTime? @map("signed_at")
   esaVersion      String?   @map("esa_version") @db.VarChar(40)
 
-  // Uploaded electrical-panel photo (DO Spaces CDN URL)
   panelPhotoUrl String? @map("panel_photo_url") @db.VarChar(600)
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -131,12 +1075,9 @@ model Application {
   @@map("applications")
 }
 
-/// OpenEI USURDB commercial & industrial rate tariffs (~41.8k rows). Nested rate
-/// structures kept as JSON; queryable columns are indexed.
 model RateTariff {
   id          Int      @id @default(autoincrement())
   label       String   @unique @db.VarChar(64)
-  // Uncontrolled USURDB text — kept unbounded to avoid P2000 on long values.
   utilityName String   @map("utility_name")
   eiaId       String?  @map("eia_id") @db.VarChar(32)
   rateName    String?  @map("rate_name")
@@ -149,35 +1090,30 @@ model RateTariff {
   startDate   String?  @map("start_date") @db.VarChar(40)
   endDate     String?  @map("end_date") @db.VarChar(40)
 
-  // Demand charges
-  flatDemandUnit          String?  @map("flat_demand_unit") @db.VarChar(40)
-  flatDemandStructure     Json?    @map("flat_demand_structure")
-  flatDemandMonths        Json?    @map("flat_demand_months")
-  demandRateUnit          String?  @map("demand_rate_unit") @db.VarChar(40)
-  demandRateStructure     Json?    @map("demand_rate_structure")
-  demandWeekdaySchedule   Json?    @map("demand_weekday_schedule")
-  demandWeekendSchedule   Json?    @map("demand_weekend_schedule")
-  demandRatchetPercentage Float?   @map("demand_ratchet_percentage")
-  demandWindow            Int?     @map("demand_window")
-  demandReactivePowerCharge Float? @map("demand_reactive_power_charge")
+  flatDemandUnit            String? @map("flat_demand_unit") @db.VarChar(40)
+  flatDemandStructure       Json?   @map("flat_demand_structure")
+  flatDemandMonths          Json?   @map("flat_demand_months")
+  demandRateUnit            String? @map("demand_rate_unit") @db.VarChar(40)
+  demandRateStructure       Json?   @map("demand_rate_structure")
+  demandWeekdaySchedule     Json?   @map("demand_weekday_schedule")
+  demandWeekendSchedule     Json?   @map("demand_weekend_schedule")
+  demandRatchetPercentage   Float?  @map("demand_ratchet_percentage")
+  demandWindow              Int?    @map("demand_window")
+  demandReactivePowerCharge Float?  @map("demand_reactive_power_charge")
 
-  // Coincident peak
-  coincidentRateUnit      String?  @map("coincident_rate_unit") @db.VarChar(40)
-  coincidentRateStructure Json?    @map("coincident_rate_structure")
-  coincidentSchedule      Json?    @map("coincident_schedule")
+  coincidentRateUnit      String? @map("coincident_rate_unit") @db.VarChar(40)
+  coincidentRateStructure Json?   @map("coincident_rate_structure")
+  coincidentSchedule      Json?   @map("coincident_schedule")
 
-  // Energy charges
   energyRateUnit        String? @map("energy_rate_unit") @db.VarChar(40)
   energyRateStructure   Json?   @map("energy_rate_structure")
   energyWeekdaySchedule Json?   @map("energy_weekday_schedule")
   energyWeekendSchedule Json?   @map("energy_weekend_schedule")
 
-  // Fixed charges
   fixedMonthlyCharge Float? @map("fixed_monthly_charge")
   minMonthlyCharge   Float? @map("min_monthly_charge")
   annualMinCharge    Float? @map("annual_min_charge")
 
-  // Capacity
   peakKwCapacityMin Float?   @map("peak_kw_capacity_min")
   peakKwCapacityMax Float?   @map("peak_kw_capacity_max")
   usesNetMetering   Boolean? @map("uses_net_metering")
@@ -192,15 +1128,12 @@ model RateTariff {
   @@map("rate_tariffs")
 }
 
-/// Proprietary market enrichment for target utility territories (DR revenue,
-/// incentives, C-PACE, interconnection, BESS score). Small, curated table.
 model UtilityEnrichment {
   id          Int     @id @default(autoincrement())
   utilityName String  @map("utility_name") @db.VarChar(255)
   state       String  @db.VarChar(8)
   isoRto      String? @map("iso_rto") @db.VarChar(40)
 
-  // Demand response
   drProgramName      String? @map("dr_program_name") @db.VarChar(200)
   drProgramType      String? @map("dr_program_type") @db.VarChar(120)
   drRevenuePerKwYear Float?  @map("dr_revenue_per_kw_year")
@@ -209,27 +1142,23 @@ model UtilityEnrichment {
   drEventsPerYear    Int?    @map("dr_events_per_year")
   drEnrollmentMethod String? @map("dr_enrollment_method") @db.VarChar(200)
 
-  // Incentives
   incentiveProgram      String? @map("incentive_program") @db.VarChar(200)
   incentiveRatePerKwh   Float?  @map("incentive_rate_per_kwh")
   incentiveBlockName    String? @map("incentive_block_name") @db.VarChar(120)
   incentiveRemainingMwh Float?  @map("incentive_remaining_mwh")
   incentiveUrl          String? @map("incentive_url") @db.VarChar(600)
 
-  // C-PACE financing
   cpaceAvailable            Boolean? @map("cpace_available")
   cpaceAdministrator        String?  @map("cpace_administrator") @db.VarChar(200)
   cpaceAdministratorContact String?  @map("cpace_administrator_contact") @db.VarChar(200)
   cpaceCountiesOptedIn      String?  @map("cpace_counties_opted_in") @db.VarChar(600)
 
-  // Interconnection / permitting
   interconnectionProcess       String?  @map("interconnection_process") @db.VarChar(300)
   interconnectionTimelineWeeks Int?     @map("interconnection_timeline_weeks")
   greenButtonCmdAvailable      Boolean? @map("green_button_cmd_available")
   avgPermitTimelineWeeks       Int?     @map("avg_permit_timeline_weeks")
   fireReviewRequired           Boolean? @map("fire_review_required")
 
-  // Analysis
   specialRequirements  String?
   bessScore            Int?    @map("bess_score")
   primaryRevenueDriver String? @map("primary_revenue_driver") @db.VarChar(60)
@@ -244,8 +1173,6 @@ model UtilityEnrichment {
   @@map("utility_enrichment")
 }
 
-/// Waitlist "Join the list" signups from the pre-approval landing. Lightweight
-/// lead capture (email required); upserted on email so re-submits don't dupe.
 model Lead {
   id        Int      @id @default(autoincrement())
   email     String   @unique @db.VarChar(255)
@@ -263,35 +1190,29 @@ model Lead {
   @@map("leads")
 }
 
-/// Non-binding Letter of Intent signed on the site. Captures the site owner's
-/// interest + a typed e-signature; the PDF is generated on demand from this data.
 model Loi {
   id              Int      @id @default(autoincrement())
   loiNumber       String   @unique @map("loi_number") @db.VarChar(32)
-  // Site owner
   siteOwnerName   String   @map("site_owner_name") @db.VarChar(200)
   propertyAddress String   @map("property_address") @db.VarChar(400)
   email           String   @db.VarChar(255)
   phone           String?  @db.VarChar(40)
-  // Proposed project
-  batteryCount    String?  @map("battery_count") @db.VarChar(20) // one | two | three_plus
-  rooftopSolar    String?  @map("rooftop_solar") @db.VarChar(20) // yes | no | planned
-  timeframe       String?  @db.VarChar(20)                       // asap | flexible
-  reasons         String[] @default([])                          // multi-select
+  batteryCount    String?  @map("battery_count") @db.VarChar(20)
+  rooftopSolar    String?  @map("rooftop_solar") @db.VarChar(20)
+  timeframe       String?  @db.VarChar(20)
+  reasons         String[] @default([])
   reasonOther     String?  @map("reason_other") @db.VarChar(300)
-  // E-signature
   signedName      String   @map("signed_name") @db.VarChar(200)
   signedAt        DateTime @default(now()) @map("signed_at")
   signatureIp     String?  @map("signature_ip") @db.VarChar(64)
   source          String?  @db.VarChar(64)
-  // ESS/ITC qualification snapshot (computed from propertyAddress at signing)
-  essTier         String?  @map("ess_tier") @db.VarChar(20) // BASE | UNDERSERVED
+  essTier         String?  @map("ess_tier") @db.VarChar(20)
   underserved     Boolean?
   energyCommunity Boolean? @map("energy_community")
   nmtcLowIncome   Boolean? @map("nmtc_low_income")
   itcConfirmedPct Int?     @map("itc_confirmed_pct")
   itcPotentialPct Int?     @map("itc_potential_pct")
-  lucrativeScore  Int?     @map("lucrative_score") // higher = prioritize
+  lucrativeScore  Int?     @map("lucrative_score")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -301,10 +1222,6 @@ model Loi {
   @@map("lois")
 }
 
-// Connecticut multifamily affordable-housing master list (LIHTC + Section 8 /
-// HUD multifamily + public housing). Drives MFAH auto-qualification for the ESS
-// Low-Income tier and the ITC §48(e) Cat 3 adder. Loaded from
-// data/ess/CT_MFAH_Master_List.csv and geocoded via Census (see import-mfah.ts).
 model MfahProperty {
   id                  Int      @id @default(autoincrement())
   projectName         String?  @map("project_name")
@@ -312,14 +1229,14 @@ model MfahProperty {
   city                String
   zip                 String?
   units               Int?
-  sources             String[] @default([]) // LIHTC | Section8_Multifamily | Public_Housing
+  sources             String[] @default([])
   ownerOperator       String?  @map("owner_operator")
   contactEmail        String?  @map("contact_email")
   multiProgramOverlap Boolean  @default(false) @map("multi_program_overlap")
   lat                 Float?
   lng                 Float?
   censusTractFips     String?  @map("census_tract_fips")
-  normAddress         String   @map("norm_address") // normalized "address|city" for matching
+  normAddress         String   @map("norm_address")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
@@ -329,14 +1246,12 @@ model MfahProperty {
 }
 
 // =============================================================================
-// TPO OPERATIONS PLATFORM  (dashboard behind /portal)
-// Implements the "TPO Platform Model" spec: 26 models across 7 domains, verbatim
-// field names. NOTE: the spec's `Lead` and `User` are renamed here to `SalesLead`
-// and `PlatformUser` to avoid colliding with the existing waitlist `Lead` and
-// admin `User` models above. All rows are currently seeded demo data.
+// FROZEN SPINE + BACKFILL SOURCES + RETAINED REFERENCE (TPO platform)
+// No application code writes to the frozen spine (SalesLead/Customer/Project);
+// retained only as a backfill source and for the P1 count invariant.
 // =============================================================================
 
-// ==== TPO ENUMS ====
+// ==== TPO enums retained on retained tables ====
 enum LeadSource {
   WEB
   REFERRAL
@@ -359,23 +1274,6 @@ enum CustomerStatus {
   AGREEMENT_SIGNED
 }
 
-enum DocType {
-  LOI
-  TPO_AGREEMENT
-  NTP
-  PERMIT_SET
-  PHOTO
-  INSPECTION_REPORT
-  COI
-}
-
-enum DocStatus {
-  DRAFT
-  SENT
-  SIGNED
-  VOID
-}
-
 enum ProjectStage {
   DESIGN
   SITE_SURVEY
@@ -387,20 +1285,6 @@ enum ProjectStage {
   PTO
   MONITORING
   ACTIVE
-}
-
-enum Health {
-  ON_TRACK
-  AT_RISK
-  BLOCKED
-}
-
-enum AssetStatus {
-  IN_STOCK
-  ALLOCATED
-  INSTALLED
-  RMA
-  RETIRED
 }
 
 enum SurveyStatus {
@@ -438,17 +1322,6 @@ enum InspectionResult {
   FAIL
 }
 
-enum ContractorStatus {
-  PENDING
-  ACTIVE
-  SUSPENDED
-}
-
-enum ContractorRole {
-  ADMIN
-  TECH
-}
-
 enum JobScope {
   SITE_SURVEY
   INSTALL
@@ -470,120 +1343,12 @@ enum BidStatus {
   LOST
 }
 
-enum WorkOrderStatus {
-  AWARDED
-  SCHEDULED
-  IN_PROGRESS
-  SUBMITTED
-  ACCEPTED
-  REWORK
-  CANCELLED
-}
-
-enum Severity {
-  INFO
-  WARN
-  CRITICAL
-}
-
-enum SubjectType {
-  LEAD
-  CUSTOMER
-  PROJECT
-}
-
 enum TaskStatus {
   OPEN
   DONE
   CANCELLED
 }
 
-enum PlatformRole {
-  SALES_REP
-  SALES_MANAGER
-  OPS
-  ADMIN
-  CONTRACTOR
-  HOMEOWNER
-}
-
-// ==== PLATFORM domain ====
-model PlatformUser {
-  id        String       @id @default(cuid())
-  email     String       @unique
-  name      String
-  role      PlatformRole
-  isActive  Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  contact          Contact?          @relation("UserContact")
-  ownedLeads       SalesLead[]       @relation("LeadOwner")
-  managedProjects  Project[]         @relation("ProjectPM")
-  assignedTasks    Task[]
-  stageTransitions StageTransition[]
-  contractorLinks  ContractorUser[]
-
-  @@map("platform_users")
-}
-
-model StageTransition {
-  id          String        @id @default(cuid())
-  subjectType SubjectType
-  subjectId   String
-  fromStage   String
-  toStage     String
-  actorId     String?
-  occurredAt  DateTime      @default(now())
-  note        String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  actor PlatformUser? @relation(fields: [actorId], references: [id])
-
-  @@index([subjectType, subjectId])
-  @@map("stage_transitions")
-}
-
-model Task {
-  id         String     @id @default(cuid())
-  projectId  String?
-  leadId     String?
-  assigneeId String
-  title      String
-  dueAt      DateTime?
-  status     TaskStatus @default(OPEN)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  project  Project?     @relation(fields: [projectId], references: [id])
-  lead     SalesLead?   @relation(fields: [leadId], references: [id])
-  assignee PlatformUser @relation(fields: [assigneeId], references: [id])
-
-  @@index([projectId])
-  @@map("tasks")
-}
-
-model Document {
-  id             String    @id @default(cuid())
-  customerId     String?
-  projectId      String?
-  type           DocType
-  status         DocStatus @default(DRAFT)
-  esignEnvelopeId String?
-  signedAt       DateTime?
-  fileUrl        String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  customer Customer? @relation(fields: [customerId], references: [id])
-  project  Project?  @relation(fields: [projectId], references: [id])
-
-  @@index([projectId])
-  @@map("documents")
-}
-
-// ==== PLACE domain ====
 model Utility {
   id                       String   @id @default(cuid())
   name                     String
@@ -593,55 +1358,28 @@ model Utility {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
-  addresses        Address[]
+  properties       Property[]
   interconnections Interconnection[]
 
   @@map("utilities")
 }
 
 model Ahj {
-  id                String   @id @default(cuid())
-  name              String
-  county            String
-  permitPortalUrl   String?
-  avgApprovalDays   Int?
-  requiresStructural Boolean @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String
+  county             String
+  permitPortalUrl    String?
+  avgApprovalDays    Int?
+  requiresStructural Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  addresses Address[]
-  permits   Permit[]
+  properties Property[]
+  permits    Permit[]
 
   @@map("ahjs")
 }
 
-model Address {
-  id         String   @id @default(cuid())
-  line1      String
-  line2      String?
-  city       String
-  state      String   @default("CT")
-  postalCode String
-  county     String
-  lat        Float?
-  lng        Float?
-  utilityId  String?
-  ahjId      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  utility          Utility?   @relation(fields: [utilityId], references: [id])
-  ahj              Ahj?       @relation(fields: [ahjId], references: [id])
-  leads            SalesLead[] @relation("LeadAddress")
-  serviceCustomers Customer[]  @relation("CustServiceAddr")
-  billingCustomers Customer[]  @relation("CustBillingAddr")
-  projects         Project[]   @relation("ProjSiteAddr")
-
-  @@index([county])
-  @@map("addresses")
-}
-
-// ==== DEMAND domain ====
 model Contact {
   id                String   @id @default(cuid())
   firstName         String
@@ -649,22 +1387,21 @@ model Contact {
   email             String   @unique
   phone             String
   preferredLanguage String   @default("en")
-  userId            String?  @unique
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user      PlatformUser? @relation("UserContact", fields: [userId], references: [id])
   leads     SalesLead[]
   customers Customer[]
 
   @@map("contacts")
 }
 
+/// FROZEN. Backfill source (unconverted leads → systems at S01/S02).
 model SalesLead {
   id                   String     @id @default(cuid())
   addressId            String
   contactId            String
-  ownerId              String?
+  ownerId              String? // legacy staff pointer (FK dropped in re-model)
   source               LeadSource
   status               LeadStatus @default(NEW)
   disqualifyReason     String?
@@ -673,16 +1410,16 @@ model SalesLead {
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
 
-  address  Address       @relation("LeadAddress", fields: [addressId], references: [id])
-  contact  Contact       @relation(fields: [contactId], references: [id])
-  owner    PlatformUser? @relation("LeadOwner", fields: [ownerId], references: [id])
-  customer Customer?     @relation("LeadCustomer")
+  address  Property  @relation("LeadAddress", fields: [addressId], references: [id])
+  contact  Contact   @relation(fields: [contactId], references: [id])
+  customer Customer? @relation("LeadCustomer")
   tasks    Task[]
 
   @@index([status])
   @@map("sales_leads")
 }
 
+/// FROZEN. Backfill source (converted → Project → system).
 model Customer {
   id               String         @id @default(cuid())
   leadId           String         @unique
@@ -695,24 +1432,23 @@ model Customer {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
-  lead           SalesLead  @relation("LeadCustomer", fields: [leadId], references: [id])
-  contact        Contact    @relation(fields: [contactId], references: [id])
-  serviceAddress Address    @relation("CustServiceAddr", fields: [serviceAddressId], references: [id])
-  billingAddress Address?   @relation("CustBillingAddr", fields: [billingAddressId], references: [id])
+  lead           SalesLead @relation("LeadCustomer", fields: [leadId], references: [id])
+  contact        Contact   @relation(fields: [contactId], references: [id])
+  serviceAddress Property  @relation("CustServiceAddr", fields: [serviceAddressId], references: [id])
+  billingAddress Property? @relation("CustBillingAddr", fields: [billingAddressId], references: [id])
   project        Project?
-  documents      Document[]
 
   @@map("customers")
 }
 
-// ==== DELIVERY domain ====
+/// FROZEN. Primary backfill source — each Project → one `systems` row.
 model Project {
   id               String       @id @default(cuid())
   customerId       String       @unique
   siteAddressId    String
   stage            ProjectStage @default(DESIGN)
-  health           Health       @default(ON_TRACK)
-  projectManagerId String?
+  health           HealthState  @default(OK)
+  projectManagerId String? // legacy staff pointer (FK dropped in re-model)
   termYears        Int          @default(20)
   monthlyRateCents Int
   targetPtoDate    DateTime?
@@ -720,21 +1456,16 @@ model Project {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  customer        Customer        @relation(fields: [customerId], references: [id])
-  siteAddress     Address         @relation("ProjSiteAddr", fields: [siteAddressId], references: [id])
-  projectManager  PlatformUser?   @relation("ProjectPM", fields: [projectManagerId], references: [id])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  siteAddress     Property         @relation("ProjSiteAddr", fields: [siteAddressId], references: [id])
   designs         SystemDesign[]
-  assets          BatteryAsset[]
   survey          SiteSurvey?
   permits         Permit[]
   interconnection Interconnection?
   inspections     Inspection[]
   jobPostings     JobPosting[]
-  workOrders      WorkOrder[]
   monitoringSite  MonitoringSite?
-  alerts          Alert[]
   tasks           Task[]
-  documents       Document[]
 
   @@index([stage])
   @@index([health])
@@ -742,36 +1473,35 @@ model Project {
 }
 
 model BatteryModel {
-  id           String   @id @default(cuid())
-  manufacturer String
-  model        String
-  nameplateKwh Decimal
-  continuousKw Decimal
-  chemistry    String
+  id            String   @id @default(cuid())
+  manufacturer  String
+  model         String
+  nameplateKwh  Decimal
+  continuousKw  Decimal
+  chemistry     String
   warrantyYears Int
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   designs SystemDesign[]
-  assets  BatteryAsset[]
 
   @@map("battery_models")
 }
 
 model SystemDesign {
-  id            String   @id @default(cuid())
-  projectId     String
-  version       Int
+  id             String   @id @default(cuid())
+  projectId      String
+  version        Int
   batteryModelId String
-  quantity      Int
-  usableKwh     Decimal
-  continuousKw  Decimal
-  inverterModel String
-  solarCoupled  Boolean  @default(false)
-  backupLoads   Json?
-  isCurrent     Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  quantity       Int
+  usableKwh      Decimal
+  continuousKw   Decimal
+  inverterModel  String
+  solarCoupled   Boolean  @default(false)
+  backupLoads    Json?
+  isCurrent      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   project      Project      @relation(fields: [projectId], references: [id])
   batteryModel BatteryModel @relation(fields: [batteryModelId], references: [id])
@@ -780,36 +1510,18 @@ model SystemDesign {
   @@map("system_designs")
 }
 
-model BatteryAsset {
-  id            String      @id @default(cuid())
-  batteryModelId String
-  projectId     String?
-  serialNumber  String      @unique
-  status        AssetStatus @default(IN_STOCK)
-  installedAt   DateTime?
-  warrantyEndsAt DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  batteryModel BatteryModel @relation(fields: [batteryModelId], references: [id])
-  project      Project?     @relation(fields: [projectId], references: [id])
-
-  @@index([status])
-  @@map("battery_assets")
-}
-
 model SiteSurvey {
-  id           String       @id @default(cuid())
-  projectId    String       @unique
-  workOrderId  String?      @unique
-  scheduledAt  DateTime?
-  completedAt  DateTime?
-  status       SurveyStatus @default(SCHEDULED)
+  id            String       @id @default(cuid())
+  projectId     String       @unique
+  workOrderId   String?      @unique
+  scheduledAt   DateTime?
+  completedAt   DateTime?
+  status        SurveyStatus @default(SCHEDULED)
   mainPanelAmps Int?
-  findings     Json?
-  photoDocIds  String[]     @default([])
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  findings      Json?
+  photoDocIds   String[]     @default([])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   project   Project    @relation(fields: [projectId], references: [id])
   workOrder WorkOrder? @relation(fields: [workOrderId], references: [id])
@@ -817,7 +1529,6 @@ model SiteSurvey {
   @@map("site_surveys")
 }
 
-// ==== COMPLIANCE domain ====
 model Permit {
   id          String       @id @default(cuid())
   projectId   String
@@ -840,17 +1551,17 @@ model Permit {
 }
 
 model Interconnection {
-  id               String   @id @default(cuid())
-  projectId        String   @unique
-  utilityId        String
+  id                String    @id @default(cuid())
+  projectId         String    @unique
+  utilityId         String
   applicationNumber String?
-  status           IxStatus @default(NOT_STARTED)
-  submittedAt      DateTime?
-  approvedAt       DateTime?
-  ptoAt            DateTime?
+  status            IxStatus  @default(NOT_STARTED)
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  ptoAt             DateTime?
   programEnrollment String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   project Project @relation(fields: [projectId], references: [id])
   utility Utility @relation(fields: [utilityId], references: [id])
@@ -873,42 +1584,6 @@ model Inspection {
 
   @@index([projectId])
   @@map("inspections")
-}
-
-// ==== FIELD domain ====
-model Contractor {
-  id                 String           @id @default(cuid())
-  companyName        String
-  licenseNumber      String
-  licenseExpiresAt   DateTime
-  insuranceExpiresAt DateTime
-  serviceCounties    String[]         @default([])
-  certifications     String[]         @default([])
-  rating             Float?
-  status             ContractorStatus @default(PENDING)
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-
-  bids            Bid[]
-  workOrders      WorkOrder[]
-  contractorUsers ContractorUser[]
-
-  @@map("contractors")
-}
-
-model ContractorUser {
-  id           String         @id @default(cuid())
-  contractorId String
-  userId       String
-  role         ContractorRole @default(TECH)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  contractor Contractor   @relation(fields: [contractorId], references: [id])
-  user       PlatformUser @relation(fields: [userId], references: [id])
-
-  @@unique([contractorId, userId])
-  @@map("contractor_users")
 }
 
 model JobPosting {
@@ -936,49 +1611,41 @@ model JobPosting {
 }
 
 model Bid {
-  id           String    @id @default(cuid())
-  jobPostingId String
-  contractorId String
-  amountCents  Int
+  id            String    @id @default(cuid())
+  jobPostingId  String
+  contractorId  String // legacy installer pointer (Contractor→installers)
+  amountCents   Int
   proposedStart DateTime
-  note         String?
-  status       BidStatus @default(SUBMITTED)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  note          String?
+  status        BidStatus @default(SUBMITTED)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   jobPosting JobPosting  @relation("PostingBids", fields: [jobPostingId], references: [id])
-  contractor Contractor  @relation(fields: [contractorId], references: [id])
   awardedFor JobPosting? @relation("AwardedBid")
 
-  @@unique([jobPostingId, contractorId])
+  @@index([jobPostingId])
   @@map("bids")
 }
 
-model WorkOrder {
-  id           String          @id @default(cuid())
-  jobPostingId String          @unique
-  projectId    String
-  contractorId String
-  scope        JobScope
-  status       WorkOrderStatus @default(AWARDED)
-  scheduledAt  DateTime?
-  completedAt  DateTime?
-  checklist    Json?
-  qualityScore Int?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+model Task {
+  id         String     @id @default(cuid())
+  projectId  String?
+  leadId     String?
+  assigneeId String? // NON-ADDITIVE: relaxed nullable; FK to platform_users dropped
+  title      String
+  dueAt      DateTime?
+  status     TaskStatus @default(OPEN)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
-  jobPosting JobPosting  @relation(fields: [jobPostingId], references: [id])
-  project    Project     @relation(fields: [projectId], references: [id])
-  contractor Contractor  @relation(fields: [contractorId], references: [id])
-  survey     SiteSurvey?
-  alerts     Alert[]
+  project Project?   @relation(fields: [projectId], references: [id])
+  lead    SalesLead? @relation(fields: [leadId], references: [id])
 
   @@index([projectId])
-  @@map("work_orders")
+  @@map("tasks")
 }
 
-// ==== FLEET domain ====
 model MonitoringSite {
   id             String    @id @default(cuid())
   projectId      String    @unique
@@ -991,7 +1658,6 @@ model MonitoringSite {
 
   project   Project             @relation(fields: [projectId], references: [id])
   telemetry TelemetrySnapshot[]
-  alerts    Alert[]
 
   @@map("monitoring_sites")
 }
@@ -1009,27 +1675,4 @@ model TelemetrySnapshot {
 
   @@index([monitoringSiteId, ts])
   @@map("telemetry_snapshots")
-}
-
-model Alert {
-  id               String    @id @default(cuid())
-  monitoringSiteId String
-  projectId        String
-  code             String
-  message          String
-  severity         Severity  @default(INFO)
-  openedAt         DateTime  @default(now())
-  acknowledgedAt   DateTime?
-  resolvedAt       DateTime?
-  workOrderId      String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  monitoringSite MonitoringSite @relation(fields: [monitoringSiteId], references: [id])
-  project        Project        @relation(fields: [projectId], references: [id])
-  workOrder      WorkOrder?     @relation(fields: [workOrderId], references: [id])
-
-  @@index([severity])
-  @@index([projectId])
-  @@map("alerts")
 }

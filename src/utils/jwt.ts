@@ -6,7 +6,7 @@ import jwt, { type SignOptions } from 'jsonwebtoken';
 
 export interface JWTPayload {
   userId: number;
-  firebaseUid: string;
+  firebaseUid: string | null; // consolidated users may be non-Firebase staff (R6)
   email: string;
   role: string;
 }
