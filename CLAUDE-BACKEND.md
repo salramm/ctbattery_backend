@@ -41,6 +41,14 @@ USURDB via the command in `src/scripts/import-tariffs.ts`. `data/territories-sim
 | `GET /api/applications?page=&limit=&status=` | JWT ADMIN/OWNER | Paginated list |
 | `GET /api/applications/:id` | JWT ADMIN/OWNER | Detail |
 | `PATCH /api/applications/:id` | JWT ADMIN/OWNER | `{status}` update |
+| `GET /api/lifecycle/map` | — | State-machine map (stages, gates, block codes, clocks, transitions) projected from the seed tables + `TRANSITIONS` |
+| `POST /api/systems/:id/advance` | JWT ADMIN/OPS | Advance one stage. `{via:MANUAL\|OVERRIDE, reason?}`. 422 `GATE_UNMET` returns `{gate, unmet:[{key,label,owner_role}]}` |
+| `POST /api/systems/:id/block` | JWT ADMIN/OPS | `{code, note?}` — code must belong to the current stage |
+| `POST /api/systems/:id/unblock` | JWT ADMIN/OPS | Clear the block |
+| `POST /api/systems/:id/terminal` | JWT ADMIN | `{state, reason, acknowledge_clawback?}`. Stage preserved; REMOVED in recapture → 409 `RECAPTURE_WINDOW` + `clawback_amount` |
+| `PATCH /api/systems/:id/checklist` | JWT ADMIN/OPS/FIELD | `{key, state, doc_id?}`; may fire an AUTO advance. Auto-only items (telemetry/DERMS) → 403 |
+| `POST /api/systems/:id/docs` | JWT ADMIN/OPS/FIELD | multipart; ROF/COF letters write the date and fire the AUTO chain |
+| `POST /api/systems/:id/turnover` | JWT ADMIN/OPS | Open a turnover case + TURNOVER flag |
 
 Response envelope: `{success:true,data,pagination?}` / `{success:false,code,message}`.
 `/health` and `/api/territories` return raw documents (no envelope).
@@ -68,6 +76,20 @@ Response envelope: `{success:true,data,pagination?}` / `{success:false,code,mess
   contracts the web cards already expect; tariff service extracts best-effort
   `_effective_demand_charge` and `_tou_spread` from JSON rate structures.
 - **application.service** — create / list / get / updateStatus.
+- **lib/lifecycle** — the state machine (02-STATE-MACHINE). One gate validator
+  (`gates.ts#evaluateGate`) + one advance primitive drive every caller. `machine.ts`
+  exposes `advance` (MANUAL/OVERRIDE) plus AUTO trigger entry points the pollers / field
+  app / docs endpoint call (`onRofLogged`, `onCofLogged`, `onWorkOrderCheckin/Checkout`,
+  `onTelemetryConfirmed`, `onDermsVisible`, `onSnapshotWritten`) — all funnel into
+  `runAutoChain`, which steps while the next transition is AUTO and its gate passes
+  (each AUTO gate **is** its trigger predicate). `stage_history`'s unique
+  `(system_id, from, to)` makes duplicate fires idempotent no-ops. On-enter effects
+  (`effects.ts`) do the real data work (checklist instantiation, rate lock + ITC claim
+  ACCRUING at S05, BASIS_LOCKED + ENROLL_INC ledger + PIS/recapture dates at OPERATING);
+  external effects (SMS/DocuSign/PDF/poller arms) are stubbed behind `notifications.ts`.
+  `TRANSITIONS` (`transitions.ts`) is the locked map — do not add transitions beyond it.
+  `map.ts` projects the seed tables for `GET /api/lifecycle/map`. Integration test:
+  `npm run test:lifecycle` (drives S01→OPERATING through the public surface).
 
 ## Gotchas
 

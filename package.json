@@ -12,7 +12,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "import:tariffs": "ts-node src/scripts/import-tariffs.ts",
-    "import:enrichment": "ts-node src/scripts/import-enrichment.ts"
+    "import:enrichment": "ts-node src/scripts/import-enrichment.ts",
+    "seed:lifecycle": "ts-node src/scripts/seed-lifecycle.ts",
+    "test:lifecycle": "ts-node src/scripts/lifecycle.e2e.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",

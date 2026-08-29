@@ -19,6 +19,8 @@ import leadsRouter from './routes/leads';
 import loiRouter from './routes/loi';
 import opsRouter from './routes/ops';
 import essRouter from './routes/ess';
+import systemsRouter from './routes/systems';
+import lifecycleRouter from './routes/lifecycle';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -102,6 +104,14 @@ app.get('/api', (_req: Request, res: Response) => {
         'GET  /api/applications': 'list applications (admin)',
         'GET  /api/applications/:id': 'application detail (admin)',
         'PATCH /api/applications/:id': 'update application status (admin)',
+        'GET  /api/lifecycle/map': 'lifecycle state-machine map (stages, gates, block codes, clocks, transitions) from seeds',
+        'POST /api/systems/:id/advance': 'advance one stage — MANUAL or OVERRIDE (server-validated gate; 422 unmet list)',
+        'POST /api/systems/:id/block': 'set a block code (must belong to the current stage)',
+        'POST /api/systems/:id/unblock': 'clear the block code',
+        'POST /api/systems/:id/terminal': 'terminalize (admin; REMOVED-in-recapture → 409 clawback)',
+        'PATCH /api/systems/:id/checklist': 'set a checklist item state; may fire an AUTO advance',
+        'POST /api/systems/:id/docs': 'record a document; ROF/COF letters fire the AUTO chain',
+        'POST /api/systems/:id/turnover': 'open a turnover case + TURNOVER flag',
       },
     }),
   );
@@ -118,6 +128,8 @@ app.use('/api/leads', leadsRouter);
 app.use('/api/loi', loiRouter);
 app.use('/api/ops', opsRouter);
 app.use('/api/ess', essRouter);
+app.use('/api/systems', systemsRouter);
+app.use('/api/lifecycle', lifecycleRouter);
 
 // ==== Error + 404 handlers ====================================================
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
