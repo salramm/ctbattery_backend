@@ -21,6 +21,9 @@ import opsRouter from './routes/ops';
 import essRouter from './routes/ess';
 import systemsRouter from './routes/systems';
 import lifecycleRouter from './routes/lifecycle';
+import pipelineRouter from './routes/pipeline';
+import propertiesRouter from './routes/properties';
+import inventoryRouter from './routes/inventory';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -112,6 +115,14 @@ app.get('/api', (_req: Request, res: Response) => {
         'PATCH /api/systems/:id/checklist': 'set a checklist item state; may fire an AUTO advance',
         'POST /api/systems/:id/docs': 'record a document; ROF/COF letters fire the AUTO chain',
         'POST /api/systems/:id/turnover': 'open a turnover case + TURNOVER flag',
+        'GET  /api/pipeline/board': 'delivery kanban — nine stage columns with per-card gate verdicts',
+        'GET  /api/pipeline/filters': 'board filter options (property, town, tier, installer)',
+        'GET  /api/pipeline/deals': 'accounts with D1-D7 deal state, unit counts, release meters',
+        'GET  /api/properties/:id': 'property header, release meter, unit grid, contacts, batch counts',
+        'GET  /api/properties/:id/documents': 'property + unit documents',
+        'GET  /api/properties/:id/activity': 'activity feed across the property units',
+        'POST /api/properties/:id/batch': 'run a batch action across eligible units (per-unit results)',
+        'GET  /api/inventory/summary': 'per-SKU on-hand/allocated/available, buildable, next open PO',
       },
     }),
   );
@@ -130,6 +141,9 @@ app.use('/api/ops', opsRouter);
 app.use('/api/ess', essRouter);
 app.use('/api/systems', systemsRouter);
 app.use('/api/lifecycle', lifecycleRouter);
+app.use('/api/pipeline', pipelineRouter);
+app.use('/api/properties', propertiesRouter);
+app.use('/api/inventory', inventoryRouter);
 
 // ==== Error + 404 handlers ====================================================
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

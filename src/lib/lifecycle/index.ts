@@ -5,7 +5,8 @@
  */
 export * from './transitions';
 export * from './errors';
-export { evaluateGate } from './gates';
+export { evaluateGate, evaluateGateWith, batchContext } from './gates';
+export type { GateResult, GateContext } from './gates';
 export { buildLifecycleMap } from './map';
 export { assertNotHeld, addBusinessDays } from './holds';
 export {
