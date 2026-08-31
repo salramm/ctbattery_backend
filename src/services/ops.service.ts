@@ -137,7 +137,7 @@ export async function getFleet() {
   const systems = sites.map((s) => {
     const tel = latest.get(s.id);
     const stale = !s.lastSeenAt || s.lastSeenAt < cutoff;
-    const design = s.project.designs[0];
+    const design = s.project?.designs[0];
     const hw = design ? `${design.quantity} × ${design.batteryModel.model}` : '—';
     // Fault state came from Alert.code (removed in re-model); status is now telemetry-freshness only.
     let status: string;
@@ -148,12 +148,12 @@ export async function getFleet() {
     const soc = !stale && tel ? Math.round(tel.soc) : null;
     return {
       projectId: s.projectId,
-      customer: s.project.customer
+      customer: s.project?.customer
         ? displayName(s.project.customer.contact.firstName, s.project.customer.contact.lastName)
         : '—',
-      town: s.project.siteAddress?.town ?? '—',
-      lat: s.project.siteAddress?.lat ?? null,
-      lng: s.project.siteAddress?.lng ?? null,
+      town: s.project?.siteAddress?.town ?? '—',
+      lat: s.project?.siteAddress?.lat ?? null,
+      lng: s.project?.siteAddress?.lng ?? null,
       hw,
       provider: s.provider,
       soc,

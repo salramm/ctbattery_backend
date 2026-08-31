@@ -1648,7 +1648,11 @@ model Task {
 
 model MonitoringSite {
   id             String    @id @default(cuid())
-  projectId      String    @unique
+  // NON-ADDITIVE: relaxed to nullable. A monitoring site used to hang off a
+  // spine Project, so no system created after the lifecycle re-model could ever
+  // have one — the poller would only work for backfilled rows. The lifecycle
+  // link is X3: systems.enlighten_site_id -> provider_site_id.
+  projectId      String?   @unique
   provider       String
   providerSiteId String
   commissionedAt DateTime?
@@ -1656,7 +1660,7 @@ model MonitoringSite {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  project   Project             @relation(fields: [projectId], references: [id])
+  project   Project?            @relation(fields: [projectId], references: [id])
   telemetry TelemetrySnapshot[]
 
   @@map("monitoring_sites")

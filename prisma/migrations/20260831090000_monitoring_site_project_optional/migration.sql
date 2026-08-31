@@ -1,0 +1,12 @@
+-- NON-ADDITIVE: monitoring_sites."projectId" relaxed to NULL.
+--
+-- A monitoring site could only exist by hanging off a spine `projects` row,
+-- which itself requires a `customers` row. After the lifecycle re-model, systems
+-- have neither — so commissioning any NEW system left it impossible to record
+-- its monitoring site, and the poller could only ever see the 12 backfilled
+-- rows. Relaxing the FK lets a monitoring site stand on its own; the lifecycle
+-- link is X3 (systems.enlighten_site_id -> monitoring_sites.provider_site_id),
+-- which needs no project at all.
+--
+-- Existing rows keep their project link untouched (R7).
+ALTER TABLE "monitoring_sites" ALTER COLUMN "projectId" DROP NOT NULL;

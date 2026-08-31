@@ -18,6 +18,25 @@ export {
   warnDate,
 } from './clocks';
 export type { ClockHit, ClockLevel } from './clocks';
+export { computeHealth, recomputeHealth } from './health';
+export {
+  RULES,
+  openAlert,
+  clearAlert,
+  verifyTicket,
+  runVerifications,
+  openTicketForAlert,
+  evaluateEventRules,
+} from './alerts';
+export type { RuleSpec, OpenAlertResult } from './alerts';
+export {
+  readTelemetry,
+  readOne,
+  hasCleanTelemetry,
+  EXPECTED_SAMPLE_INTERVAL_HOURS,
+  MIN_SAMPLES_FOR_COMMS,
+} from './telemetry';
+export type { TelemetryRead } from './telemetry';
 export {
   advance,
   applyChecklist,

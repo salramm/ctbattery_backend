@@ -22,6 +22,7 @@ import essRouter from './routes/ess';
 import systemsRouter from './routes/systems';
 import lifecycleRouter from './routes/lifecycle';
 import todayRouter from './routes/today';
+import fleetRouter, { alertsRouter, ticketsRouter } from './routes/fleet';
 import pipelineRouter from './routes/pipeline';
 import propertiesRouter from './routes/properties';
 import inventoryRouter from './routes/inventory';
@@ -117,6 +118,10 @@ app.get('/api', (_req: Request, res: Response) => {
         'POST /api/systems/:id/docs': 'record a document; ROF/COF letters fire the AUTO chain',
         'POST /api/systems/:id/turnover': 'open a turnover case + TURNOVER flag',
         'GET  /api/today': 'the action queue — five sections composed live, one action per row',
+        'GET  /api/fleet': 'fleet lens — season strip, pins, worst-first table, derate vs actual',
+        'POST /api/fleet/poll': 'run a monitoring poll pass now',
+        'POST /api/alerts/:id/ticket': 'open a ticket for an alert (Today action)',
+        'POST /api/tickets/:id/verify': 'run the rule machine check on a claimed resolution',
         'GET  /api/pipeline/board': 'delivery kanban — nine stage columns with per-card gate verdicts',
         'GET  /api/pipeline/filters': 'board filter options (property, town, tier, installer)',
         'GET  /api/pipeline/deals': 'accounts with D1-D7 deal state, unit counts, release meters',
@@ -144,6 +149,9 @@ app.use('/api/ess', essRouter);
 app.use('/api/systems', systemsRouter);
 app.use('/api/lifecycle', lifecycleRouter);
 app.use('/api/today', todayRouter);
+app.use('/api/fleet', fleetRouter);
+app.use('/api/alerts', alertsRouter);
+app.use('/api/tickets', ticketsRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/properties', propertiesRouter);
 app.use('/api/inventory', inventoryRouter);
