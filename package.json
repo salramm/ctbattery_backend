@@ -23,7 +23,8 @@
     "test:money": "ts-node src/scripts/money.e2e.ts",
     "test:service": "ts-node src/scripts/service.e2e.ts",
     "seed:demo": "ts-node src/scripts/seed-demo.ts",
-    "test:dod": "ts-node src/scripts/dod.e2e.ts"
+    "test:dod": "ts-node src/scripts/dod.e2e.ts",
+    "test:map": "ts-node src/scripts/map-diff.e2e.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",

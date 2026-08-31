@@ -112,6 +112,7 @@ app.get('/api', (_req: Request, res: Response) => {
         'GET  /api/applications/:id': 'application detail (admin)',
         'PATCH /api/applications/:id': 'update application status (admin)',
         'GET  /api/lifecycle/map': 'lifecycle state-machine map (stages, gates, block codes, clocks, transitions) from seeds',
+        'GET  /api/systems/:id': 'the canonical system record — header, next action, key dates, X1-X5, tabs',
         'POST /api/systems/:id/advance': 'advance one stage — MANUAL or OVERRIDE (server-validated gate; 422 unmet list)',
         'POST /api/systems/:id/block': 'set a block code (must belong to the current stage)',
         'POST /api/systems/:id/unblock': 'clear the block code',

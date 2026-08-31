@@ -30,6 +30,7 @@ import {
   turnoverSchema,
 } from '../validators/lifecycleValidator';
 import type { DocumentType } from '@prisma/client';
+import { getSystem } from '../services/system.service';
 
 const router = Router();
 const docUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
@@ -45,6 +46,15 @@ function sendLifecycleError(err: unknown, res: Response, next: NextFunction) {
 const actor = (req: Request): string | null => (req.user ? String(req.user.userId) : null);
 
 router.use(authenticateJWT);
+
+// GET /api/systems/:id — the canonical record (03 §System page)
+router.get('/:id', async (req, res, next) => {
+  try {
+    res.json(successResponse(await getSystem(req.params.id)));
+  } catch (err) {
+    sendLifecycleError(err, res, next);
+  }
+});
 
 // POST /api/systems/:id/advance
 router.post('/:id/advance', requireRole('ADMIN', 'OPS'), validate(advanceSchema), async (req, res, next) => {
