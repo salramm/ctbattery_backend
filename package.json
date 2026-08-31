@@ -21,7 +21,9 @@
     "poll": "ts-node src/scripts/poll.ts",
     "test:fleet": "ts-node src/scripts/fleet.e2e.ts",
     "test:money": "ts-node src/scripts/money.e2e.ts",
-    "test:service": "ts-node src/scripts/service.e2e.ts"
+    "test:service": "ts-node src/scripts/service.e2e.ts",
+    "seed:demo": "ts-node src/scripts/seed-demo.ts",
+    "test:dod": "ts-node src/scripts/dod.e2e.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",

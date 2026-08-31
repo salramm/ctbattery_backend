@@ -118,8 +118,17 @@ export async function assembleDiligencePack(cohortId: string, opts: { by?: strin
     // --- per-serial attestations ------------------------------------------
     const attestations: Record<string, string | null> = {};
     for (const item of sys.equipment) {
+      const slot = `${folder}/attestations/${item.serial}.pdf`;
       if (!item.attestationDocId) {
+        // Every installed serial gets a slot in the tree either way. A serial
+        // that is simply absent from the archive reads as "not part of this
+        // claim"; a MISSING marker reads as "evidence owed", which is the
+        // truth and the thing counsel needs to see.
         attestations[item.serial] = null;
+        entries.push({
+          name: `${slot}.MISSING.txt`,
+          data: Buffer.from(`No attestation document is on file for serial ${item.serial}.\n`),
+        });
         gaps.push({ system_id: sys.id, address: sys.addressLine, kind: 'attestation', detail: `no attestation on file for serial ${item.serial}` });
         continue;
       }

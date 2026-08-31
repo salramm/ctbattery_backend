@@ -23,7 +23,7 @@ import systemsRouter from './routes/systems';
 import lifecycleRouter from './routes/lifecycle';
 import todayRouter from './routes/today';
 import fleetRouter, { alertsRouter } from './routes/fleet';
-import { ticketsRouter, crewsRouter, workOrdersRouter, fieldRouter } from './routes/service';
+import { ticketsRouter, crewsRouter, workOrdersRouter, fieldRouter, turnoversRouter } from './routes/service';
 import moneyRouter, { itcRouter } from './routes/money';
 import pipelineRouter from './routes/pipeline';
 import propertiesRouter from './routes/properties';
@@ -133,6 +133,9 @@ app.get('/api', (_req: Request, res: Response) => {
         'POST /api/work-orders/:id/schedule': 'drag-to-day; reports over-capacity',
         'GET  /api/field/work-orders': 'the signed-in crew\'s assigned work',
         'POST /api/field/work-orders/:id/sync': 'replay an offline queue (idempotent ops)',
+        'GET  /api/turnovers': 'open turnover cases with SLA position and artifact slots',
+        'POST /api/turnovers/report/:systemId': 'report a move-out (opens the case, closes the occupancy)',
+        'POST /api/turnovers/:id/task': 'file one of the four artifacts; the last closes the case',
         'GET  /api/money/incentives': 'enrollment + seasonal ledger rows, expected vs received',
         'POST /api/money/events/import': 'EnergyHub dispatch CSV → events (+ Enlighten cross-check)',
         'POST /api/money/seasons/:id/close': 'write PERF_PAY rows — 0.5 x annual_rate x avg kW (L7)',
@@ -179,6 +182,7 @@ app.use('/api/tickets', ticketsRouter);
 app.use('/api/crews', crewsRouter);
 app.use('/api/work-orders', workOrdersRouter);
 app.use('/api/field', fieldRouter);
+app.use('/api/turnovers', turnoversRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/properties', propertiesRouter);
 app.use('/api/inventory', inventoryRouter);

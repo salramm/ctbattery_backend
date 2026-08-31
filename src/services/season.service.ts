@@ -17,6 +17,7 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { LifecycleError, evaluateEventRules, readTelemetry } from '../lib/lifecycle';
+import { checkNameMismatch } from './turnover.service';
 
 /** 00 — season share is half the annual $/kW-yr locked rate, each season. */
 export const SEASON_SHARE = 0.5;
@@ -407,6 +408,8 @@ export interface StatementRow {
   status: string;
   result: 'reconciled' | 'variance' | 'skipped';
   detail?: string;
+  /** Set when the paying account name no longer matches the resident on record. */
+  name_mismatch?: string;
 }
 
 /**
@@ -477,7 +480,7 @@ export async function importStatement(
       },
     });
 
-    results.push({
+    const row: StatementRow = {
       system_id: match.id,
       ledger_id: entry.id,
       expected,
@@ -485,7 +488,17 @@ export async function importStatement(
       variance_pct: variance == null ? null : Number((variance * 100).toFixed(2)),
       status,
       result: isVariance ? 'variance' : 'reconciled',
-    });
+    };
+
+    // A statement paying a name we do not have on record is usually the first
+    // anyone hears about a move-out (02 §Automations).
+    const payee = r.account_name || r.payee || r.edc_account_name || '';
+    if (payee) {
+      const check = await checkNameMismatch(match.id, payee, opts.by ?? null);
+      if (check.mismatch) row.name_mismatch = check.detail ?? 'name mismatch';
+    }
+
+    results.push(row);
   }
 
   // A fully reconciled season is RECONCILED; any variance leaves it CLOSED.

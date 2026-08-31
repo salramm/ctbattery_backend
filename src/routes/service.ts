@@ -14,6 +14,7 @@ import prisma from '../config/database';
 import { LifecycleError, logRemoteAttempt, recordRma, transitionTicket, verifyTicket } from '../lib/lifecycle';
 import { assignTicket, getQueue, getTicket } from '../services/service.service';
 import { getBoard, scheduleWorkOrder } from '../services/crew.service';
+import { listTurnovers, reportMoveOut, setTurnoverTask } from '../services/turnover.service';
 import {
   captureSerials,
   captureSignature,
@@ -249,6 +250,41 @@ fieldRouter.post('/work-orders/:id/checkout', requireRole('ADMIN', 'OPS', 'FIELD
 fieldRouter.post('/work-orders/:id/sync', requireRole('ADMIN', 'OPS', 'FIELD'), async (req, res, next) => {
   try {
     res.json(successResponse(await syncOps(req.params.id, req.body?.ops ?? [], actor(req))));
+  } catch (err) {
+    send(err, res, next);
+  }
+});
+
+// ==== /api/turnovers ========================================================
+export const turnoversRouter = Router();
+turnoversRouter.use(authenticateJWT);
+
+turnoversRouter.get('/', async (req, res, next) => {
+  try {
+    res.json(successResponse(await listTurnovers(req.query.include_closed === 'true')));
+  } catch (err) {
+    send(err, res, next);
+  }
+});
+
+// The Property page's [Report move-out].
+turnoversRouter.post('/report/:systemId', requireRole('ADMIN', 'OPS'), async (req, res, next) => {
+  try {
+    const result = await reportMoveOut(req.params.systemId, {
+      reason: req.body?.reason,
+      newResident: req.body?.new_resident,
+      by: actor(req),
+    });
+    res.status(result.already ? HTTP_STATUS.OK : HTTP_STATUS.CREATED).json(successResponse(result));
+  } catch (err) {
+    send(err, res, next);
+  }
+});
+
+// Fill one of the four artifact slots; the last one closes the case.
+turnoversRouter.post('/:id/task', requireRole('ADMIN', 'OPS'), async (req, res, next) => {
+  try {
+    res.json(successResponse(await setTurnoverTask(req.params.id, req.body?.key, req.body?.value ?? true, actor(req))));
   } catch (err) {
     send(err, res, next);
   }
