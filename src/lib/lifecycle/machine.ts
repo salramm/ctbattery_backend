@@ -15,6 +15,7 @@ import { onEnter } from './effects';
 import { nextTransition, shortCode } from './transitions';
 import { notify } from './notifications';
 import { assertNotHeld } from './holds';
+import { evaluateSystemClocks } from './clocks';
 
 type Tx = Prisma.TransactionClient;
 
@@ -167,7 +168,12 @@ export async function onRofLogged(systemId: string, opts: { date?: Date; by?: st
       data: { state: 'DONE', doneAt: new Date(), doneBy: opts.by ?? 'system' },
     });
     await logActivity(tx, systemId, 'rof_logged', opts.by ?? 'system', { rof_date: date.toISOString() });
-    return runAutoChain(tx, systemId, 'system');
+    const system = await runAutoChain(tx, systemId, 'system');
+    // On-write half of the clock engine: a new rof_date opens the 24-month
+    // build window, so re-evaluate this system's clocks immediately rather
+    // than waiting for the nightly sweep.
+    await evaluateSystemClocks(systemId, tx);
+    return system;
   });
 }
 
@@ -182,7 +188,9 @@ export async function onCofLogged(systemId: string, opts: { date?: Date; by?: st
       data: { state: 'DONE', doneAt: new Date(), doneBy: opts.by ?? 'system' },
     });
     await logActivity(tx, systemId, 'cof_logged', opts.by ?? 'system', { cof_date: date.toISOString() });
-    return runAutoChain(tx, systemId, 'system');
+    const system = await runAutoChain(tx, systemId, 'system');
+    await evaluateSystemClocks(systemId, tx); // COF starts the 120-month term
+    return system;
   });
 }
 
@@ -343,6 +351,7 @@ export async function logDocument(input: LogDocumentInput) {
         data: { state: 'DONE', doneAt: new Date(), doneBy: input.by ?? 'system', docId: document.id },
       });
       const system = await runAutoChain(tx, input.systemId, 'system');
+      await evaluateSystemClocks(input.systemId, tx); // ROF/COF moved a clock
       return { document, system };
     }
 

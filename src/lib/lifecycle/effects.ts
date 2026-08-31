@@ -9,14 +9,9 @@ import type { Prisma, Stage, System } from '@prisma/client';
 import { Prisma as P } from '@prisma/client';
 import { notify } from './notifications';
 import { evalConditional } from './conditionals';
+import { addMonths } from './dates';
 
 type Tx = Prisma.TransactionClient;
-
-function addMonths(d: Date, months: number): Date {
-  const r = new Date(d);
-  r.setUTCMonth(r.getUTCMonth() + months);
-  return r;
-}
 
 /**
  * Instantiate the entered stage's checklist from `checklist_templates`,

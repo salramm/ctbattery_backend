@@ -15,7 +15,9 @@
     "import:enrichment": "ts-node src/scripts/import-enrichment.ts",
     "seed:lifecycle": "ts-node src/scripts/seed-lifecycle.ts",
     "test:lifecycle": "ts-node src/scripts/lifecycle.e2e.ts",
-    "test:pipeline": "ts-node src/scripts/pipeline.e2e.ts"
+    "test:pipeline": "ts-node src/scripts/pipeline.e2e.ts",
+    "clocks:sweep": "ts-node src/scripts/clock-sweep.ts",
+    "test:today": "ts-node src/scripts/today.e2e.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",

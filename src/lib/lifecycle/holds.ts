@@ -9,6 +9,7 @@
  */
 import type { Prisma } from '@prisma/client';
 import { LifecycleError } from './errors';
+import { addBusinessDays } from './dates';
 
 type Tx = Prisma.TransactionClient;
 
@@ -24,18 +25,6 @@ interface Hold {
 const HOLDS: Record<string, Hold> = {
   cgb_app_submitted: { clock: 'esa_cancellation', startsOnKey: 'esa_signed', defaultDays: 3 },
 };
-
-/** Business days: skip Saturday and Sunday (the CT ESS window is stated in business days). */
-export function addBusinessDays(from: Date, days: number): Date {
-  const d = new Date(from);
-  let remaining = days;
-  while (remaining > 0) {
-    d.setUTCDate(d.getUTCDate() + 1);
-    const dow = d.getUTCDay();
-    if (dow !== 0 && dow !== 6) remaining -= 1;
-  }
-  return d;
-}
 
 /**
  * Refuse a DONE write on a held item until its window closes. Throws 409

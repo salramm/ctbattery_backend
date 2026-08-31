@@ -8,7 +8,16 @@ export * from './errors';
 export { evaluateGate, evaluateGateWith, batchContext } from './gates';
 export type { GateResult, GateContext } from './gates';
 export { buildLifecycleMap } from './map';
-export { assertNotHeld, addBusinessDays } from './holds';
+export { assertNotHeld } from './holds';
+export * from './dates';
+export {
+  evaluateClocks,
+  evaluateSystemClocks,
+  recordCrossings,
+  sweepClocks,
+  warnDate,
+} from './clocks';
+export type { ClockHit, ClockLevel } from './clocks';
 export {
   advance,
   applyChecklist,
