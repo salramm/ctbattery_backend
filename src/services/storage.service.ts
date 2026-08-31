@@ -4,7 +4,7 @@
  * isStorageConfigured() is false until the DO_SPACES_* env vars are set, and
  * callers should surface STORAGE_NOT_CONFIGURED rather than crash.
  */
-import { S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 
 let client: S3Client | null = null;
@@ -72,4 +72,24 @@ export async function uploadBuffer(
   const cdnUrl = cdnBase ? `${cdnBase}/${key}` : url;
 
   return { key, url, cdnUrl, size: buffer.length, contentType };
+}
+
+/**
+ * Read an object back out of Spaces. The diligence pack assembles real evidence
+ * files, so the ITC desk needs the read side of storage, not just the write.
+ * Returns null when the key is missing so a pack can report a gap rather than
+ * fail entirely — an incomplete evidence file is a finding, not a crash.
+ */
+export async function downloadBuffer(key: string): Promise<Buffer | null> {
+  if (!isStorageConfigured()) throw new Error('STORAGE_NOT_CONFIGURED');
+  try {
+    const res = await getClient().send(
+      new GetObjectCommand({ Bucket: process.env.DO_SPACES_BUCKET as string, Key: key }),
+    );
+    const body = res.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+    if (!body?.transformToByteArray) return null;
+    return Buffer.from(await body.transformToByteArray());
+  } catch {
+    return null;
+  }
 }

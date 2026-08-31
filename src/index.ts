@@ -23,6 +23,7 @@ import systemsRouter from './routes/systems';
 import lifecycleRouter from './routes/lifecycle';
 import todayRouter from './routes/today';
 import fleetRouter, { alertsRouter, ticketsRouter } from './routes/fleet';
+import moneyRouter, { itcRouter } from './routes/money';
 import pipelineRouter from './routes/pipeline';
 import propertiesRouter from './routes/properties';
 import inventoryRouter from './routes/inventory';
@@ -122,6 +123,17 @@ app.get('/api', (_req: Request, res: Response) => {
         'POST /api/fleet/poll': 'run a monitoring poll pass now',
         'POST /api/alerts/:id/ticket': 'open a ticket for an alert (Today action)',
         'POST /api/tickets/:id/verify': 'run the rule machine check on a claimed resolution',
+        'GET  /api/money/incentives': 'enrollment + seasonal ledger rows, expected vs received',
+        'POST /api/money/events/import': 'EnergyHub dispatch CSV → events (+ Enlighten cross-check)',
+        'POST /api/money/seasons/:id/close': 'write PERF_PAY rows — 0.5 x annual_rate x avg kW (L7)',
+        'POST /api/money/statements/import': 'reconcile receipts; >10% gap flips VARIANCE',
+        'GET  /api/money/pnl': 'P&L roll-up per system -> property -> fleet',
+        'GET  /api/money/pnl.csv': 'P&L export in the exit-calculator column vocabulary',
+        'GET  /api/itc/claims': 'ITC claims with basis lines, stack and recapture watch',
+        'GET  /api/itc/allocations': '48E(h) allocations — applied/awarded/consumed kW',
+        'GET  /api/itc/cohorts': 'cohorts pipeline ASSEMBLING -> CASH_RECEIVED',
+        'GET  /api/itc/thread': 'claim-state aggregates behind the Pipeline ITC strip (D5)',
+        'GET  /api/itc/cohorts/:id/diligence': 'assemble the diligence ZIP for a cohort',
         'GET  /api/pipeline/board': 'delivery kanban — nine stage columns with per-card gate verdicts',
         'GET  /api/pipeline/filters': 'board filter options (property, town, tier, installer)',
         'GET  /api/pipeline/deals': 'accounts with D1-D7 deal state, unit counts, release meters',
@@ -150,6 +162,8 @@ app.use('/api/systems', systemsRouter);
 app.use('/api/lifecycle', lifecycleRouter);
 app.use('/api/today', todayRouter);
 app.use('/api/fleet', fleetRouter);
+app.use('/api/money', moneyRouter);
+app.use('/api/itc', itcRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/tickets', ticketsRouter);
 app.use('/api/pipeline', pipelineRouter);
