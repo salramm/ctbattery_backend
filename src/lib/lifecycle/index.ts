@@ -29,6 +29,8 @@ export {
   evaluateEventRules,
 } from './alerts';
 export type { RuleSpec, OpenAlertResult } from './alerts';
+export { transitionTicket, logRemoteAttempt, recordRma } from './tickets';
+export type { TransitionOpts, RmaInput } from './tickets';
 export {
   readTelemetry,
   readOne,

@@ -8,7 +8,7 @@ import { successResponse, errorResponse } from '../utils/response';
 import { authenticateJWT, requireRole } from '../middleware/auth';
 import { getFleet } from '../services/fleet.service';
 import { pollFleet } from '../services/poller.service';
-import { openTicketForAlert, verifyTicket } from '../lib/lifecycle';
+import { openTicketForAlert } from '../lib/lifecycle';
 
 const router = Router();
 router.use(authenticateJWT);
@@ -48,19 +48,6 @@ alertsRouter.post('/:id/ticket', requireRole('ADMIN', 'OPS'), async (req, res, n
       return res.status(HTTP_STATUS.NOT_FOUND).json(errorResponse('ALERT_NOT_FOUND', `No alert ${req.params.id}`));
     }
     res.status(HTTP_STATUS.CREATED).json(successResponse({ ticket }));
-  } catch (err) {
-    next(err);
-  }
-});
-
-export const ticketsRouter = Router();
-ticketsRouter.use(authenticateJWT);
-
-// POST /api/tickets/:id/verify — run the rule's machine check on a claimed fix
-ticketsRouter.post('/:id/verify', requireRole('ADMIN', 'OPS'), async (req, res, next) => {
-  try {
-    const verified = await verifyTicket(req.params.id);
-    res.json(successResponse({ verified }));
   } catch (err) {
     next(err);
   }

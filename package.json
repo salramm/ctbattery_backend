@@ -20,7 +20,8 @@
     "test:today": "ts-node src/scripts/today.e2e.ts",
     "poll": "ts-node src/scripts/poll.ts",
     "test:fleet": "ts-node src/scripts/fleet.e2e.ts",
-    "test:money": "ts-node src/scripts/money.e2e.ts"
+    "test:money": "ts-node src/scripts/money.e2e.ts",
+    "test:service": "ts-node src/scripts/service.e2e.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",

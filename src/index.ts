@@ -22,7 +22,8 @@ import essRouter from './routes/ess';
 import systemsRouter from './routes/systems';
 import lifecycleRouter from './routes/lifecycle';
 import todayRouter from './routes/today';
-import fleetRouter, { alertsRouter, ticketsRouter } from './routes/fleet';
+import fleetRouter, { alertsRouter } from './routes/fleet';
+import { ticketsRouter, crewsRouter, workOrdersRouter, fieldRouter } from './routes/service';
 import moneyRouter, { itcRouter } from './routes/money';
 import pipelineRouter from './routes/pipeline';
 import propertiesRouter from './routes/properties';
@@ -123,6 +124,15 @@ app.get('/api', (_req: Request, res: Response) => {
         'POST /api/fleet/poll': 'run a monitoring poll pass now',
         'POST /api/alerts/:id/ticket': 'open a ticket for an alert (Today action)',
         'POST /api/tickets/:id/verify': 'run the rule machine check on a claimed resolution',
+        'GET  /api/tickets': 'service queue, severity-sorted',
+        'GET  /api/tickets/:id': 'ticket detail — alert/event context, remote log, installer of record',
+        'POST /api/tickets/:id/transition': 'move a ticket (VERIFIED is machine-only)',
+        'POST /api/tickets/:id/assign': 'put a ticket in the field on a SERVICE work order',
+        'POST /api/tickets/:id/rma': 'record a serial swap — lineage + ITC evidence refresh',
+        'GET  /api/crews/board': 'crew day board — INSTALL + SERVICE on one calendar',
+        'POST /api/work-orders/:id/schedule': 'drag-to-day; reports over-capacity',
+        'GET  /api/field/work-orders': 'the signed-in crew\'s assigned work',
+        'POST /api/field/work-orders/:id/sync': 'replay an offline queue (idempotent ops)',
         'GET  /api/money/incentives': 'enrollment + seasonal ledger rows, expected vs received',
         'POST /api/money/events/import': 'EnergyHub dispatch CSV → events (+ Enlighten cross-check)',
         'POST /api/money/seasons/:id/close': 'write PERF_PAY rows — 0.5 x annual_rate x avg kW (L7)',
@@ -166,6 +176,9 @@ app.use('/api/money', moneyRouter);
 app.use('/api/itc', itcRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/tickets', ticketsRouter);
+app.use('/api/crews', crewsRouter);
+app.use('/api/work-orders', workOrdersRouter);
+app.use('/api/field', fieldRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/properties', propertiesRouter);
 app.use('/api/inventory', inventoryRouter);

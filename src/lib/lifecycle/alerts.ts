@@ -270,7 +270,11 @@ export async function verifyTicket(ticketId: string, client: Client = prisma, no
   const passes = await spec.verify(system, client, now);
   if (!passes) return false;
 
-  await client.ticket.update({ where: { id: ticketId }, data: { state: 'CLOSED', verifiedAt: now } });
+  // VERIFIED is a real state, not a flag on the way past: the machine check
+  // passed, and only then does the ticket close (02 §Automations — "VERIFIED
+  // only when the rule's machine check passes; then CLOSED").
+  await client.ticket.update({ where: { id: ticketId }, data: { state: 'VERIFIED', verifiedAt: now } });
+  await client.ticket.update({ where: { id: ticketId }, data: { state: 'CLOSED' } });
   await client.activityLog.create({
     data: {
       entity: 'system',

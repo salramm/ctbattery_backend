@@ -355,9 +355,15 @@ model User {
   email       String   @unique @db.VarChar(255)
   name        String?  @db.VarChar(255)
   role        Role     @default(ADMIN)
+  // The crew a FIELD user works with. 03 §Field mobile scopes that role to its
+  // own assigned work orders, which needs a link from the account to the crew.
+  crewId      String?  @map("crew_id") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  crew Crew? @relation(fields: [crewId], references: [id])
+
+  @@index([crewId])
   @@map("users")
 }
 
@@ -692,6 +698,7 @@ model Crew {
 
   installer  Installer   @relation(fields: [installerId], references: [id])
   workOrders WorkOrder[]
+  users      User[]
 
   @@index([installerId])
   @@map("crews")
