@@ -36,7 +36,17 @@ export interface TodaySection {
   rows: TodayRow[];
 }
 
-const systemHref = (id: string) => `/portal/systems?id=${id}`;
+/**
+ * Row targets point at the ops console. These are the ONLY place the API knows
+ * about front-end routes, so they are collected here rather than inlined — if
+ * the console moves again, this block is the whole change.
+ */
+const systemHref = (id: string) => `/ops/system?id=${id}`;
+const ticketHref = (id: string) => `/ops/service?ticket=${id}`;
+// One system's ledger rows live on its own record, not the fleet-wide desk —
+// the Money desk has no per-system filter, so `?system=` was being ignored.
+const ledgerHref = (systemId: string) => `/ops/system?id=${systemId}&tab=money`;
+const ITC_DESK_HREF = '/ops/money?desk=itc';
 
 function ageLabel(days: number): string {
   return `${days}d`;
@@ -65,7 +75,7 @@ async function healthAlerts(now: Date): Promise<TodayRow[]> {
       metric: ageLabel(daysBetween(a.openedAt, now)),
       severity: a.severity === 'FAULT' ? 'FAULT' : 'WATCH',
       action: a.ticketId
-        ? { label: 'View', href: `/portal/service?ticket=${a.ticketId}` }
+        ? { label: 'View', href: ticketHref(a.ticketId) }
         : {
             label: 'Open ticket',
             href: systemHref(a.systemId),
@@ -126,7 +136,7 @@ function clockRow(hit: ClockHit): TodayRow {
     severity: hit.level === 'DUE' ? 'DUE' : 'WATCH',
     action: hit.systemId
       ? { label: 'Open', href: systemHref(hit.systemId) }
-      : { label: 'Open ITC desk', href: '/portal/money?desk=itc' },
+      : { label: 'Open ITC desk', href: ITC_DESK_HREF },
   };
 }
 
@@ -196,7 +206,7 @@ async function moneyVariances(now: Date): Promise<TodayRow[]> {
           : `Expected ${expected}, no receipt`,
       metric: overdueDays != null && overdueDays > 0 ? `${overdueDays}d over` : expected,
       severity: r.status === 'VARIANCE' ? 'DUE' : 'WATCH',
-      action: { label: 'Open ledger', href: `/portal/money?system=${r.systemId}` },
+      action: { label: 'Open ledger', href: ledgerHref(r.systemId) },
     };
   });
 }
