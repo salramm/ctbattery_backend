@@ -114,5 +114,5 @@ builds on push to `main`.
   the JWT to the admin dashboard (currently the dashboard accepts a pasted token; the portal
   still gates on client-side `apps/web/src/lib/auth.ts`).
 - DO Spaces bucket → enables the panel-photo upload endpoint (frontend photo step not yet added).
-- Droplet + DNS + Docker Hub secrets → first deploy (see `deployment/README.md`), then
-  uncomment the `/api/*` proxy in `netlify.toml`.
+- (Done) Droplet + DNS + Docker Hub secrets — prod is live at the apex; `/api/*` is proxied
+  same-origin by the web container's nginx (see `deployment/README.md`).

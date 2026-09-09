@@ -28,6 +28,7 @@ import moneyRouter, { itcRouter } from './routes/money';
 import pipelineRouter from './routes/pipeline';
 import propertiesRouter from './routes/properties';
 import inventoryRouter from './routes/inventory';
+import directoryRouter from './routes/directory';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -156,6 +157,7 @@ app.get('/api', (_req: Request, res: Response) => {
         'GET  /api/properties/:id/activity': 'activity feed across the property units',
         'POST /api/properties/:id/batch': 'run a batch action across eligible units (per-unit results)',
         'GET  /api/inventory/summary': 'per-SKU on-hand/allocated/available, buildable, next open PO',
+        'GET  /api/directory/summary': 'six object counts — accounts, properties, residents, installers/crews, equipment, documents',
       },
     }),
   );
@@ -187,6 +189,7 @@ app.use('/api/turnovers', turnoversRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/properties', propertiesRouter);
 app.use('/api/inventory', inventoryRouter);
+app.use('/api/directory', directoryRouter);
 
 // ==== Error + 404 handlers ====================================================
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
